@@ -123,13 +123,15 @@ export default function StepPhoneOTP({ onNext }: Props) {
 
   return (
     <form onSubmit={handleSendOtp} className="flex flex-col gap-3.5">
-      <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-        <h2 className="text-3xl font-bold text-[#0066CC] md:text-4xl">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-end">
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
+            Paso 1 de 5
+          </span>
+        </div>
+        <h2 className="text-3xl font-bold text-[#0066CC]">
           Registro por SMS
         </h2>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
-          Paso 1 de 5
-        </span>
       </div>
 
       <p className="text-base leading-snug text-[#666666]">

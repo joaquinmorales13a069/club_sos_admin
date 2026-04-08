@@ -48,21 +48,36 @@ export default function SignupPage() {
     else if (step === 4) setStep(5);
   };
 
+  /**
+   * Retrocede al paso anterior.
+   * El paso 4 puede venir de 3 (titular) o de 3.5 (dependiente),
+   * por lo que se verifica el parentesco acumulado para decidir.
+   */
+  const handleBack = () => {
+    if (step === 2) setStep(1);
+    else if (step === 3) setStep(2);
+    else if (step === 3.5) setStep(3);
+    else if (step === 4) {
+      setStep(formData.parentesco === "titular" ? 3 : 3.5);
+    }
+    else if (step === 5) setStep(4);
+  };
+
   // Renderiza el componente del paso actual
   const renderStep = () => {
     switch (step) {
       case 1:
         return <StepPhoneOTP onNext={handleNext} />;
       case 2:
-        return <StepEmpresa onNext={handleNext} />;
+        return <StepEmpresa onNext={handleNext} onBack={handleBack} />;
       case 3:
-        return <StepParentesco onNext={handleNext} />;
+        return <StepParentesco onNext={handleNext} onBack={handleBack} />;
       case 3.5:
-        return <StepTitular formData={formData} onNext={handleNext} />;
+        return <StepTitular formData={formData} onNext={handleNext} onBack={handleBack} />;
       case 4:
-        return <StepPerfil formData={formData} onNext={handleNext} />;
+        return <StepPerfil formData={formData} onNext={handleNext} onBack={handleBack} />;
       case 5:
-        return <StepResumen formData={formData} />;
+        return <StepResumen formData={formData} onBack={handleBack} />;
     }
   };
 

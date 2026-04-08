@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { IoArrowBack } from "react-icons/io5";
 import { crearMiembro, getCurrentUserId } from "../../lib/appwrite";
 import type { StepProps } from "../../types/signup";
 
-type Props = Pick<StepProps, "formData">;
+type Props = Pick<StepProps, "formData" | "onBack">;
 
 // Etiquetas legibles para el parentesco
 const PARENTESCO_LABEL: Record<string, string> = {
@@ -13,7 +14,7 @@ const PARENTESCO_LABEL: Record<string, string> = {
   familiar: "Familiar",
 };
 
-export default function StepResumen({ formData }: Props) {
+export default function StepResumen({ formData, onBack }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -40,13 +41,24 @@ export default function StepResumen({ formData }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-        <h2 className="text-3xl font-bold text-[#0066CC] md:text-4xl">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[#666666] transition-colors hover:bg-[#E8E8E8]"
+            aria-label="Retroceder"
+          >
+            <IoArrowBack size={16} />
+            Regresar
+          </button>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
+            Paso 5 de 5
+          </span>
+        </div>
+        <h2 className="text-3xl font-bold text-[#0066CC]">
           Resumen de cuenta
         </h2>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
-          Paso 5 de 5
-        </span>
       </div>
 
       <p className="text-base leading-snug text-[#666666]">

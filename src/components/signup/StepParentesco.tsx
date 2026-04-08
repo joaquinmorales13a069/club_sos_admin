@@ -1,6 +1,7 @@
+import { IoArrowBack } from "react-icons/io5";
 import type { Parentesco, StepProps } from "../../types/signup";
 
-type Props = Pick<StepProps, "onNext">;
+type Props = Pick<StepProps, "onNext" | "onBack">;
 
 // Opciones de parentesco con su descripcion para mayor claridad al usuario
 const OPCIONES: { value: Parentesco; label: string; descripcion: string }[] = [
@@ -26,7 +27,7 @@ const OPCIONES: { value: Parentesco; label: string; descripcion: string }[] = [
   },
 ];
 
-export default function StepParentesco({ onNext }: Props) {
+export default function StepParentesco({ onNext, onBack }: Props) {
   // Al seleccionar parentesco, pasa directamente al siguiente paso
   // sin necesidad de boton — mejora la fluidez del flujo
   const handleSelect = (parentesco: Parentesco) => {
@@ -35,13 +36,24 @@ export default function StepParentesco({ onNext }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-        <h2 className="text-3xl font-bold text-[#0066CC] md:text-4xl">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[#666666] transition-colors hover:bg-[#E8E8E8]"
+            aria-label="Retroceder"
+          >
+            <IoArrowBack size={16} />
+            Regresar
+          </button>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
+            Paso 3 de 5
+          </span>
+        </div>
+        <h2 className="text-3xl font-bold text-[#0066CC]">
           Tipo de cuenta
         </h2>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
-          Paso 3 de 5
-        </span>
       </div>
 
       <p className="text-base leading-snug text-[#666666]">

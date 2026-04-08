@@ -49,4 +49,5 @@ export interface SignupFormData {
 export interface StepProps {
   formData: SignupFormData;
   onNext: (data: Partial<SignupFormData>) => void;
+  onBack?: () => void;
 }
