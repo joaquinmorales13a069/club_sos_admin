@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import LoginPage from "./pages/Login";
-import SignupPage from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
+import LoginPage from "./pages/Login.tsx";
+import SignupPage from "./pages/Signup.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
 
 function App() {
   return (

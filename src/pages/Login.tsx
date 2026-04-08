@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useState, type FormEvent, type ReactElement } from "react";
 import type { CountryCode } from "libphonenumber-js";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -8,6 +7,7 @@ import {
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
 import { sendPhoneOTP, verifyPhoneOTP } from "../lib/appwrite";
+import { useOtpSmsGate } from "../hooks/useOtpSmsGate";
 import logoSosMedical from "../assets/logo-sosmedical.webp";
 import logoClubSos from "../assets/logo-clubSOS.webp";
 import loginImagen from "../assets/login-image.webp";
@@ -22,7 +22,7 @@ const COUNTRY_CODES: { iso: CountryCode; code: string; label: string }[] =
     }))
     .sort((a, b) => a.label.localeCompare(b.label, "es"));
 
-export default function LoginPage() {
+export default function LoginPage(): ReactElement {
   const navigate = useNavigate();
   const [countryIso, setCountryIso] = useState<CountryCode>("NI");
   const [phoneDigits, setPhoneDigits] = useState("");
@@ -35,10 +35,16 @@ export default function LoginPage() {
   const parsedPhone = parsePhoneNumberFromString(phoneDigits, countryIso);
   const isPhoneValid = Boolean(parsedPhone?.isValid());
   const fullPhone = parsedPhone?.number ?? "";
+  const otpSmsGate = useOtpSmsGate(fullPhone);
+  const canRequestOtpSms = otpSmsGate.ok === true;
 
   const handleSendOtp = async (event: FormEvent) => {
     event.preventDefault();
     if (!isPhoneValid) return;
+    if (otpSmsGate.ok === false) {
+      setError(otpSmsGate.message);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -77,6 +83,10 @@ export default function LoginPage() {
 
   const handleResendOtp = async () => {
     if (!isPhoneValid) return;
+    if (otpSmsGate.ok === false) {
+      setError(otpSmsGate.message);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -187,6 +197,12 @@ export default function LoginPage() {
               </p>
             )}
 
+            {isPhoneValid && otpSmsGate.ok === false && (
+              <p className="rounded-xl border border-[#CC3333]/40 bg-[#FFF5F5] px-3 py-2 text-xs text-[#666666]">
+                {otpSmsGate.message}
+              </p>
+            )}
+
             {otpSent && (
               <>
                 <label className="mt-1 text-sm font-medium text-[#666666]">
@@ -206,7 +222,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={handleResendOtp}
-                    disabled={loading}
+                    disabled={loading || !canRequestOtpSms}
                     className="text-sm font-semibold text-[#CC3333] disabled:opacity-50"
                   >
                     Reenviar codigo
@@ -221,7 +237,11 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || (!otpSent && !isPhoneValid) || (otpSent && otp.length !== 6)}
+              disabled={
+                loading ||
+                (!otpSent && (!isPhoneValid || !canRequestOtpSms)) ||
+                (otpSent && otp.length !== 6)
+              }
               className="flex w-full items-center justify-center rounded-xl bg-[#CC3333] px-[18px] py-[14px] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="text-base font-semibold text-white">

@@ -7,6 +7,7 @@ import {
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
 import { sendPhoneOTP, verifyPhoneOTP, getCurrentUserId } from "../../lib/appwrite";
+import { useOtpSmsGate } from "../../hooks/useOtpSmsGate";
 import type { StepProps } from "../../types/signup";
 
 const OTP_LENGTH = 6;
@@ -50,12 +51,18 @@ export default function StepPhoneOTP({ onNext }: Props) {
   const fullPhone = parsedPhone?.number ?? "";
   const canSendOtp = Boolean(parsedPhone?.isValid());
   const canVerifyOtp = otp.length === OTP_LENGTH;
+  const otpSmsGate = useOtpSmsGate(fullPhone);
+  const canRequestOtpSms = otpSmsGate.ok;
 
   // Paso 1a: envia el OTP por SMS
   const handleSendOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSendOtp) {
       setStatusMessage("Ingresa un numero valido para continuar.");
+      return;
+    }
+    if (!canRequestOtpSms) {
+      setError(otpSmsGate.message);
       return;
     }
 
@@ -102,7 +109,10 @@ export default function StepPhoneOTP({ onNext }: Props) {
 
   // Reenvio del OTP generando un nuevo token
   const handleResendOtp = async () => {
-    if (!canSendOtp) return;
+    if (!canSendOtp || !canRequestOtpSms) {
+      if (!canRequestOtpSms) setError(otpSmsGate.message);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -166,10 +176,16 @@ export default function StepPhoneOTP({ onNext }: Props) {
         />
       </div>
 
+      {canSendOtp && !canRequestOtpSms && (
+        <p className="rounded-xl border border-[#CC3333]/40 bg-[#FFF5F5] px-3 py-2 text-xs text-[#666666]">
+          {otpSmsGate.message}
+        </p>
+      )}
+
       {/* Boton enviar OTP */}
       <button
         type="submit"
-        disabled={!canSendOtp || loading}
+        disabled={!canSendOtp || !canRequestOtpSms || loading}
         className="mt-1 flex w-full items-center justify-center rounded-xl bg-[#CC3333] px-[18px] py-[14px] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="text-base font-semibold text-white">
@@ -198,7 +214,7 @@ export default function StepPhoneOTP({ onNext }: Props) {
             <button
               type="button"
               onClick={handleResendOtp}
-              disabled={loading}
+              disabled={loading || !canRequestOtpSms}
               className="text-sm font-semibold text-[#CC3333] disabled:opacity-50"
             >
               Reenviar codigo

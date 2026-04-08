@@ -1,5 +1,6 @@
 import { Client, Account, Databases, Storage, ID, Query } from "appwrite";
 import type { Empresa, MiembroTitular, SignupFormData } from "../types/signup";
+import { getOtpSmsGateStatus, recordOtpSmsSent } from "./otpRateLimit";
 
 // Inicializa el cliente de Appwrite con el endpoint y el ID del proyecto
 // definidos en las variables de entorno (.env)
@@ -29,7 +30,12 @@ const TABLE_MIEMBROS = "miembros";
  * @returns userId generado por Appwrite, necesario para verificar el OTP
  */
 export async function sendPhoneOTP(phone: string): Promise<string> {
+  const gate = getOtpSmsGateStatus(phone);
+  if (gate.ok === false) {
+    throw new Error(gate.message);
+  }
   const token = await account.createPhoneToken(ID.unique(), phone);
+  recordOtpSmsSent(phone);
   return token.userId;
 }
 
