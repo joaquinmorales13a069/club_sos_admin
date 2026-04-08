@@ -126,10 +126,16 @@ export async function buscarMiembroTitular(
   };
 }
 
+/** Limite del campo `name` en usuarios de Appwrite Auth */
+const AUTH_NAME_MAX_LEN = 128;
+
 /**
  * Crea el registro del nuevo miembro en la tabla miembros.
  * Se llama al finalizar el paso 5 (resumen).
  * El miembro se crea con activo = false, pendiente de activacion por un admin.
+ *
+ * Tambien actualiza el campo `name` del usuario de Auth para que coincida con
+ * nombre_completo (visible en el panel de usuarios de Appwrite).
  *
  * @param data - Datos acumulados durante todo el flujo de registro
  * @param authUserId - ID del usuario autenticado (obtenido de getCurrentUserId)
@@ -138,6 +144,12 @@ export async function crearMiembro(
   data: SignupFormData,
   authUserId: string,
 ): Promise<void> {
+  const nombreAuth = data.nombre_completo.trim().slice(0, AUTH_NAME_MAX_LEN);
+
+  // Primero el perfil Auth: si falla el documento, el usuario puede reintentar
+  // sin fila duplicada en miembros.
+  await account.updateName({ name: nombreAuth });
+
   await databases.createDocument(DB_ID, TABLE_MIEMBROS, ID.unique(), {
     auth_user_id: authUserId,
     empresa_id: data.empresa!.$id,
