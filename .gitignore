@@ -31,3 +31,7 @@ tools/
 
 # enviroment variables
 .env
+
+# Pencil files
+pencil/
+*.pen
