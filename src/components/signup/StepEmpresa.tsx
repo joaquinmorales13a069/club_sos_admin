@@ -111,7 +111,6 @@ export default function StepEmpresa({ onNext, onBack }: Props) {
 
           <div>
             <p className="text-lg font-bold text-[#333333]">{empresa.nombre_empresa}</p>
-            <p className="text-sm text-[#666666]">Codigo: {empresa.codigo_empresa}</p>
             {empresa.notas && (
               <p className="mt-1 text-sm text-[#666666]">{empresa.notas}</p>
             )}

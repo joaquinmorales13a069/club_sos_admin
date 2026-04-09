@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
+import { toast } from "react-toastify";
 import { crearMiembro, getCurrentUserId } from "../../lib/appwrite";
 import type { StepProps } from "../../types/signup";
 
@@ -31,7 +32,8 @@ export default function StepResumen({ formData, onBack }: Props) {
     try {
       const authUserId = await getCurrentUserId();
       await crearMiembro(formData, authUserId);
-      navigate("/registro-exitoso");
+      toast.success("Cuenta creada. Tu acceso esta pendiente de activacion.");
+      navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al crear la cuenta.");
     } finally {

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { IoRefresh } from "react-icons/io5";
+import Skeleton from "react-loading-skeleton";
+import { toast } from "react-toastify";
 import logoSosMedical from "../assets/logo-sosmedical.webp";
-import logoClubSos from "../assets/logo-clubSOS.webp";
 import { DashboardRolePanels } from "../components/dashboard/DashboardRolePanels";
 import { ROL_LABEL } from "../types/miembro";
 import { useMiembroSession } from "../hooks/useMiembroSession";
@@ -16,9 +17,32 @@ export default function Dashboard() {
     setLoggingOut(true);
     try {
       await logout();
+      toast.success("Sesion cerrada correctamente.");
       navigate("/login", { replace: true });
+    } catch {
+      toast.error("No se pudo cerrar sesion. Intenta de nuevo.");
     } finally {
       setLoggingOut(false);
+    }
+  };
+
+  const handleRefetch = async () => {
+    const toastId = toast.loading("Actualizando datos del miembro...");
+    try {
+      await refetch();
+      toast.update(toastId, {
+        render: "Datos actualizados.",
+        type: "success",
+        isLoading: false,
+        autoClose: 2200,
+      });
+    } catch {
+      toast.update(toastId, {
+        render: "No se pudieron actualizar los datos.",
+        type: "error",
+        isLoading: false,
+        autoClose: 3200,
+      });
     }
   };
 
@@ -28,12 +52,19 @@ export default function Dashboard() {
 
   if (state.status === "loading") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F5F3EE]">
-        <div
-          className="h-10 w-10 animate-spin rounded-full border-2 border-[#0066CC] border-t-transparent"
-          aria-hidden
-        />
-        <p className="text-sm text-[#666666]">Cargando tu cuenta...</p>
+      <div className="min-h-screen bg-[#F5F3EE] px-4 py-8 md:px-6">
+        <div className="mx-auto max-w-[1200px]">
+          <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 md:p-8">
+            <Skeleton height={30} width={220} />
+            <Skeleton className="mt-4" count={2} />
+            <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <Skeleton height={160} />
+              <Skeleton height={160} />
+              <Skeleton height={160} />
+            </div>
+            <p className="mt-5 text-sm text-[#666666]">Cargando tu cuenta...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -44,7 +75,7 @@ export default function Dashboard() {
         <p className="max-w-md text-center text-sm text-[#666666]">{state.message}</p>
         <button
           type="button"
-          onClick={() => void refetch()}
+          onClick={() => void handleRefetch()}
           className="rounded-xl bg-[#0066CC] px-5 py-2.5 text-sm font-semibold text-white"
         >
           Reintentar
@@ -73,7 +104,7 @@ export default function Dashboard() {
             telefono. Completa el registro para continuar.
           </p>
           <Link
-            to="/signup"
+            to="/signup?continue=1"
             className="mt-6 inline-block rounded-xl bg-[#CC3333] px-6 py-3 text-sm font-semibold text-white"
           >
             Ir al registro
@@ -100,7 +131,6 @@ export default function Dashboard() {
         <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6">
           <div className="flex flex-wrap items-center gap-4">
             <img src={logoSosMedical} alt="ClubSOS Admin" className="h-11 w-auto object-contain" />
-            <img src={logoClubSos} alt="clubSOS" className="h-9 w-auto object-contain opacity-90" />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-[#0066CC]/10 px-3 py-1 text-xs font-semibold text-[#0066CC]">
@@ -119,16 +149,18 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-[1200px] px-4 py-8 md:px-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#0066CC] md:text-4xl">
-            Hola, {miembro.nombre_completo.split(" ")[0]}
-          </h1>
-          <p className="mt-2 text-base text-[#666666]">
-            {isPending
-              ? "Tu cuenta aun esta pendiente de activacion."
-              : "Este es tu panel principal de ClubSOS."}
-          </p>
-        </div>
+        {miembro.rol !== "miembro" && (
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-[#0066CC] md:text-4xl">
+              Hola, {miembro.nombre_completo.split(" ")[0]}
+            </h1>
+            <p className="mt-2 text-base text-[#666666]">
+              {isPending
+                ? "Tu cuenta aun esta pendiente de activacion."
+                : "Este es tu panel principal de ClubSOS."}
+            </p>
+          </div>
+        )}
 
         {isPending ? (
           <section className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-6 md:p-8">
@@ -140,7 +172,7 @@ export default function Dashboard() {
             </p>
             <button
               type="button"
-              onClick={() => void refetch()}
+              onClick={() => void handleRefetch()}
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#0066CC] px-5 py-2.5 text-sm font-semibold text-white"
             >
               <IoRefresh size={18} />
@@ -148,7 +180,7 @@ export default function Dashboard() {
             </button>
           </section>
         ) : (
-          <DashboardRolePanels rol={miembro.rol} />
+          <DashboardRolePanels rol={miembro.rol} miembro={miembro} />
         )}
       </main>
     </div>

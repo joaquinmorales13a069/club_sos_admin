@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import type { CountryCode } from "libphonenumber-js";
 import {
   getCountries,
@@ -53,6 +53,19 @@ export default function StepPhoneOTP({ onNext }: Props) {
   const canVerifyOtp = otp.length === OTP_LENGTH;
   const otpSmsGate = useOtpSmsGate(fullPhone);
   const canRequestOtpSms = otpSmsGate.ok;
+
+  const handleOtpKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.key.length > 1 ||
+      /^\d$/.test(event.key)
+    ) {
+      return;
+    }
+    event.preventDefault();
+  };
 
   // Paso 1a: envia el OTP por SMS
   const handleSendOtp = async (event: FormEvent<HTMLFormElement>) => {
@@ -203,6 +216,18 @@ export default function StepPhoneOTP({ onNext }: Props) {
             type="text"
             value={otp}
             disabled={isVerified}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="one-time-code"
+            onKeyDown={handleOtpKeyDown}
+            onPaste={(event) => {
+              const digits = event.clipboardData
+                .getData("text")
+                .replace(/\D/g, "")
+                .slice(0, OTP_LENGTH);
+              event.preventDefault();
+              setOtp(digits);
+            }}
             onChange={(e) =>
               setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
             }

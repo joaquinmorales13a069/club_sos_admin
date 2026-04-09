@@ -1,4 +1,9 @@
-import { useState, type FormEvent, type ReactElement } from "react";
+import {
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactElement,
+} from "react";
 import type { CountryCode } from "libphonenumber-js";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -37,6 +42,19 @@ export default function LoginPage(): ReactElement {
   const fullPhone = parsedPhone?.number ?? "";
   const otpSmsGate = useOtpSmsGate(fullPhone);
   const canRequestOtpSms = otpSmsGate.ok === true;
+
+  const handleOtpKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.key.length > 1 ||
+      /^\d$/.test(event.key)
+    ) {
+      return;
+    }
+    event.preventDefault();
+  };
 
   const handleSendOtp = async (event: FormEvent) => {
     event.preventDefault();
@@ -211,6 +229,18 @@ export default function LoginPage(): ReactElement {
                 <input
                   type="text"
                   value={otp}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  onKeyDown={handleOtpKeyDown}
+                  onPaste={(event) => {
+                    const digits = event.clipboardData
+                      .getData("text")
+                      .replace(/\D/g, "")
+                      .slice(0, 6);
+                    event.preventDefault();
+                    setOtp(digits);
+                  }}
                   onChange={(event) =>
                     setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
                   }

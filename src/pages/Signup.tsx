@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { account } from "../lib/appwrite";
 import logoSosMedical from "../assets/logo-sosmedical.webp";
 import logoClubSos from "../assets/logo-clubSOS.webp";
 import signupImagen from "../assets/signup-imagen.webp";
@@ -26,8 +27,49 @@ const INITIAL_FORM_DATA: SignupFormData = {
 };
 
 export default function SignupPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const continueFromSession = searchParams.get("continue") === "1";
+  const [resumeReady, setResumeReady] = useState(!continueFromSession);
+
   const [step, setStep] = useState<SignupStep>(1);
   const [formData, setFormData] = useState<SignupFormData>(INITIAL_FORM_DATA);
+
+  /**
+   * Tras iniciar sesion sin perfil de miembro, ?continue=1 reanuda en el paso 2
+   * usando la sesion OTP ya activa (telefono + auth_user_id desde Appwrite).
+   */
+  useEffect(() => {
+    if (!continueFromSession) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const user = await account.get();
+        if (cancelled) return;
+        const phone = user.phone;
+        if (phone) {
+          setFormData((prev) => ({
+            ...prev,
+            telefono: phone,
+            authUserId: user.$id,
+          }));
+          setStep(2);
+        }
+      } catch {
+        // Sin sesion valida: el usuario completa el paso 1 con OTP como siempre.
+      } finally {
+        if (!cancelled) {
+          setResumeReady(true);
+          setSearchParams({}, { replace: true });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [continueFromSession, setSearchParams]);
 
   /**
    * Recibe los datos parciales de cada paso, los fusiona con el estado
@@ -121,7 +163,19 @@ export default function SignupPage() {
             />
 
             {/* Paso activo */}
-            {renderStep()}
+            {!resumeReady ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-10">
+                <div
+                  className="h-10 w-10 animate-spin rounded-full border-2 border-[#0066CC] border-t-transparent"
+                  aria-hidden
+                />
+                <p className="text-center text-sm text-[#666666]">
+                  Preparando tu registro...
+                </p>
+              </div>
+            ) : (
+              renderStep()
+            )}
 
             <p className="mt-1 text-center text-sm text-[#666666]">
               Ya tienes cuenta?{" "}

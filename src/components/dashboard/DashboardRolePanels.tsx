@@ -6,7 +6,8 @@ import {
   IoPersonOutline,
   IoSettingsOutline,
 } from "react-icons/io5";
-import type { MiembroRol } from "../../types/miembro";
+import type { Miembro, MiembroRol } from "../../types/miembro";
+import { DashboardMiembro } from "./DashboardMiembro";
 
 function PanelCard({
   icon,
@@ -81,7 +82,17 @@ const ADMIN_EXTRA = (
   </>
 );
 
-export function DashboardRolePanels({ rol }: { rol: MiembroRol }) {
+export function DashboardRolePanels({
+  rol,
+  miembro,
+}: {
+  rol: MiembroRol;
+  miembro: Miembro;
+}) {
+  if (rol === "miembro") {
+    return <DashboardMiembro miembro={miembro} />;
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {rol === "admin" && (
@@ -97,7 +108,6 @@ export function DashboardRolePanels({ rol }: { rol: MiembroRol }) {
           {MIEMBRO_PANELS}
         </>
       )}
-      {rol === "miembro" && MIEMBRO_PANELS}
     </div>
   );
 }

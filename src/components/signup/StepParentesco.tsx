@@ -8,22 +8,22 @@ const OPCIONES: { value: Parentesco; label: string; descripcion: string }[] = [
   {
     value: "titular",
     label: "Titular",
-    descripcion: "Soy el titular principal de la cuenta.",
+    descripcion: "Soy trabajador/a de la empresa.",
   },
   {
     value: "conyuge",
     label: "Conyuge",
-    descripcion: "Soy esposo/a del titular de la cuenta.",
+    descripcion: "Soy esposo/a de un trabajador/a de la empresa.",
   },
   {
     value: "hijo",
     label: "Hijo/a",
-    descripcion: "Soy hijo/a del titular de la cuenta.",
+    descripcion: "Soy hijo/a de un trabajador/a de la empresa.",
   },
   {
     value: "familiar",
     label: "Familiar",
-    descripcion: "Soy otro familiar del titular de la cuenta.",
+    descripcion: "Soy otro familiar de un trabajador/a de la empresa.",
   },
 ];
 
