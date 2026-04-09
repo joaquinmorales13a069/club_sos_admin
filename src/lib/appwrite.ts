@@ -1,4 +1,5 @@
 import { Client, Account, Databases, Storage, ID, Query } from "appwrite";
+import type { Miembro, MiembroRol } from "../types/miembro";
 import type { Empresa, MiembroTitular, SignupFormData } from "../types/signup";
 import { getOtpSmsGateStatus, recordOtpSmsSent } from "./otpRateLimit";
 
@@ -57,6 +58,61 @@ export async function verifyPhoneOTP(userId: string, otp: string): Promise<void>
 export async function getCurrentUserId(): Promise<string> {
   const user = await account.get();
   return user.$id;
+}
+
+/**
+ * Cierra la sesion actual en este dispositivo.
+ */
+export async function cerrarSesion(): Promise<void> {
+  await account.deleteSession({ sessionId: "current" });
+}
+
+function parseMiembroRol(value: string): MiembroRol {
+  if (value === "admin" || value === "empresa_admin" || value === "miembro") {
+    return value;
+  }
+  return "miembro";
+}
+
+function documentoAMiembro(doc: Record<string, unknown>): Miembro {
+  return {
+    $id: String(doc.$id),
+    auth_user_id: String(doc.auth_user_id),
+    empresa_id: String(doc.empresa_id),
+    parentesco: String(doc.parentesco),
+    nombre_completo: String(doc.nombre_completo),
+    fecha_nacimiento: String(doc.fecha_nacimiento),
+    sexo: String(doc.sexo),
+    documento_identidad:
+      doc.documento_identidad == null ? null : String(doc.documento_identidad),
+    correo: doc.correo == null ? null : String(doc.correo),
+    telefono: String(doc.telefono),
+    titular_miembro_id:
+      doc.titular_miembro_id == null ? null : String(doc.titular_miembro_id),
+    rol: parseMiembroRol(String(doc.rol)),
+    activo: Boolean(doc.activo),
+    ea_customer_sync:
+      doc.ea_customer_sync == null ? undefined : Boolean(doc.ea_customer_sync),
+  };
+}
+
+/**
+ * Obtiene el documento de miembro vinculado al usuario de Auth (telefono OTP).
+ * Un usuario puede no tener fila si aun no completo el registro en `miembros`.
+ */
+export async function getMiembroPorAuthUserId(
+  authUserId: string,
+): Promise<Miembro | null> {
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, [
+    Query.equal("auth_user_id", authUserId),
+    Query.limit(1),
+  ]);
+
+  if (response.documents.length === 0) return null;
+
+  return documentoAMiembro(
+    response.documents[0] as unknown as Record<string, unknown>,
+  );
 }
 
 // ---------------------------------------------------------------------------
