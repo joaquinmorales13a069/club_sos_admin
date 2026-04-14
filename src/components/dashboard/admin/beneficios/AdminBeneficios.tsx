@@ -7,9 +7,9 @@ import {
     IoImageOutline,
     IoTrashOutline,
 } from "react-icons/io5";
-import type { Beneficio, Miembro } from "../../../types/miembro";
-import type { Empresa } from "../../../types/signup";
-import { eliminarBeneficio, getBeneficiosAdmin, getTodasLasEmpresas } from "../../../lib/appwrite";
+import type { Beneficio, Miembro } from "../../../../types/miembro";
+import type { Empresa } from "../../../../types/signup";
+import { eliminarBeneficio, getBeneficiosAdmin, getTodasLasEmpresas } from "../../../../lib/appwrite";
 import { BeneficioFormModal } from "./BeneficioFormModal";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -23,11 +23,7 @@ const ESTADO_STYLES: Record<string, string> = {
     expirada: "bg-[#F5F3EE] text-[#666666]",
 };
 
-interface Props {
-    miembro: Miembro;
-}
-
-export function AdminBeneficios({ miembro }: Props) {
+export function AdminBeneficios({ miembro }: { miembro: Miembro }) {
     const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(true);
@@ -49,15 +45,8 @@ export function AdminBeneficios({ miembro }: Props) {
         return empresas.find((e) => e.$id === id)?.nombre_empresa ?? id;
     }
 
-    function abrirCrear() {
-        setEditTarget(null);
-        setModalOpen(true);
-    }
-
-    function abrirEditar(b: Beneficio) {
-        setEditTarget(b);
-        setModalOpen(true);
-    }
+    function abrirCrear() { setEditTarget(null); setModalOpen(true); }
+    function abrirEditar(b: Beneficio) { setEditTarget(b); setModalOpen(true); }
 
     async function confirmarEliminar(id: string) {
         setDeleting(true);
@@ -72,7 +61,6 @@ export function AdminBeneficios({ miembro }: Props) {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <header className="flex flex-col gap-4 rounded-2xl border border-[#0066CC]/15 bg-linear-to-br from-white to-[#0066CC]/6 px-5 py-6 sm:flex-row sm:items-center sm:justify-between md:px-7">
                 <div>
                     <p className="text-sm font-medium text-[#666666]">Administración</p>
@@ -93,7 +81,6 @@ export function AdminBeneficios({ miembro }: Props) {
                 </button>
             </header>
 
-            {/* Table */}
             {loading ? (
                 <div className="space-y-3">
                     {Array.from({ length: 4 }).map((_, i) => (
@@ -111,52 +98,31 @@ export function AdminBeneficios({ miembro }: Props) {
                         <table className="w-full min-w-[640px] text-sm">
                             <thead>
                                 <tr className="border-b border-[#E5E5E5] bg-[#F5F3EE]/60">
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Imagen
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Título
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Tipo
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Estado
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Empresas
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Fecha fin
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[#666666]">
-                                        Acciones
-                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">Imagen</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">Título</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">Tipo</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">Estado</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">Empresas</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#666666]">Fecha fin</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[#666666]">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E5E5]/80">
                                 {beneficios.map((b) => (
                                     <tr key={b.$id} className="transition-colors hover:bg-[#F5F3EE]/40">
-                                        {/* Imagen */}
                                         <td className="px-4 py-3">
                                             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-[#E5E5E5] bg-[#F5F3EE]">
                                                 {b.beneficio_image_url ? (
-                                                    <img
-                                                        src={b.beneficio_image_url}
-                                                        alt={b.titulo}
-                                                        className="h-full w-full object-cover"
-                                                    />
+                                                    <img src={b.beneficio_image_url} alt={b.titulo} className="h-full w-full object-cover" />
                                                 ) : (
                                                     <IoImageOutline size={18} className="text-[#CCCCCC]" />
                                                 )}
                                             </div>
                                         </td>
-                                        {/* Título */}
                                         <td className="px-4 py-3">
                                             <p className="font-semibold text-[#333333]">{b.titulo}</p>
                                             <p className="line-clamp-1 text-xs text-[#666666]">{b.descripcion}</p>
                                         </td>
-                                        {/* Tipo */}
                                         <td className="px-4 py-3">
                                             {b.tipo_beneficio ? (
                                                 <span className="rounded-full bg-[#F5F3EE] px-2.5 py-0.5 text-xs font-semibold text-[#666666]">
@@ -166,18 +132,14 @@ export function AdminBeneficios({ miembro }: Props) {
                                                 <span className="text-xs text-[#CCCCCC]">—</span>
                                             )}
                                         </td>
-                                        {/* Estado */}
                                         <td className="px-4 py-3">
                                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${ESTADO_STYLES[b.estado_beneficio] ?? "bg-[#F5F3EE] text-[#666666]"}`}>
                                                 {b.estado_beneficio}
                                             </span>
                                         </td>
-                                        {/* Empresas */}
                                         <td className="px-4 py-3">
                                             {b.empresa_id.length === 0 ? (
-                                                <span className="rounded-full bg-[#0066CC]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0066CC]">
-                                                    Global
-                                                </span>
+                                                <span className="rounded-full bg-[#0066CC]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0066CC]">Global</span>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1">
                                                     {b.empresa_id.map((id) => (
@@ -188,53 +150,28 @@ export function AdminBeneficios({ miembro }: Props) {
                                                 </div>
                                             )}
                                         </td>
-                                        {/* Fecha fin */}
                                         <td className="px-4 py-3 text-xs text-[#666666]">
                                             {b.fecha_fin
-                                                ? new Date(b.fecha_fin).toLocaleDateString("es-NI", {
-                                                      day: "numeric",
-                                                      month: "short",
-                                                      year: "numeric",
-                                                  })
+                                                ? new Date(b.fecha_fin).toLocaleDateString("es-NI", { day: "numeric", month: "short", year: "numeric" })
                                                 : <span className="text-[#CCCCCC]">Sin fecha</span>}
                                         </td>
-                                        {/* Acciones */}
                                         <td className="px-4 py-3">
                                             {confirmDeleteId === b.$id ? (
                                                 <div className="flex items-center justify-end gap-2">
                                                     <span className="text-xs text-[#666666]">¿Eliminar?</span>
-                                                    <button
-                                                        type="button"
-                                                        disabled={deleting}
-                                                        onClick={() => confirmarEliminar(b.$id)}
-                                                        className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                                                    >
+                                                    <button type="button" disabled={deleting} onClick={() => confirmarEliminar(b.$id)} className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">
                                                         {deleting ? "..." : "Sí"}
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setConfirmDeleteId(null)}
-                                                        className="rounded-lg border border-[#E5E5E5] px-2.5 py-1 text-xs font-semibold text-[#666666] hover:bg-[#F5F3EE]"
-                                                    >
+                                                    <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded-lg border border-[#E5E5E5] px-2.5 py-1 text-xs font-semibold text-[#666666] hover:bg-[#F5F3EE]">
                                                         No
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => abrirEditar(b)}
-                                                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0066CC] transition-colors hover:bg-[#0066CC]/10"
-                                                        title="Editar"
-                                                    >
+                                                    <button type="button" onClick={() => abrirEditar(b)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0066CC] transition-colors hover:bg-[#0066CC]/10" title="Editar">
                                                         <IoCreateOutline size={18} />
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setConfirmDeleteId(b.$id)}
-                                                        className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50"
-                                                        title="Eliminar"
-                                                    >
+                                                    <button type="button" onClick={() => setConfirmDeleteId(b.$id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50" title="Eliminar">
                                                         <IoTrashOutline size={18} />
                                                     </button>
                                                 </div>
@@ -253,10 +190,7 @@ export function AdminBeneficios({ miembro }: Props) {
                     beneficio={editTarget}
                     empresas={empresas}
                     onClose={() => setModalOpen(false)}
-                    onSaved={() => {
-                        setLoading(true);
-                        cargar();
-                    }}
+                    onSaved={() => { setLoading(true); cargar(); }}
                 />
             )}
         </div>

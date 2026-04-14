@@ -179,7 +179,7 @@ export default function Dashboard() {
             </button>
           </section>
         ) : (
-          <DashboardRolePanels rol={miembro.rol} miembro={miembro} />
+          <DashboardRolePanels miembro={miembro} />
         )}
       </main>
     </div>
