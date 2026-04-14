@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
   type FormEvent,
   type KeyboardEvent,
@@ -11,7 +12,7 @@ import {
   getCountryCallingCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
-import { sendPhoneOTP, verifyPhoneOTP } from "../lib/appwrite";
+import { account, sendPhoneOTP, verifyPhoneOTP } from "../lib/appwrite";
 import { useOtpSmsGate } from "../hooks/useOtpSmsGate";
 import logoSosMedical from "../assets/logo-sosmedical.webp";
 import logoClubSos from "../assets/logo-clubSOS.webp";
@@ -29,7 +30,15 @@ const COUNTRY_CODES: { iso: CountryCode; code: string; label: string }[] =
 
 export default function LoginPage(): ReactElement {
   const navigate = useNavigate();
+  const [checkingSession, setCheckingSession] = useState(true);
   const [countryIso, setCountryIso] = useState<CountryCode>("NI");
+
+  useEffect(() => {
+    account.get().then(
+      () => { navigate("/dashboard", { replace: true }); },
+      () => { setCheckingSession(false); },
+    );
+  }, [navigate]);
   const [phoneDigits, setPhoneDigits] = useState("");
   const [otp, setOtp] = useState("");
   const [userId, setUserId] = useState("");
@@ -121,6 +130,14 @@ export default function LoginPage(): ReactElement {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <span className="text-sm text-[#666666]">Verificando sesion...</span>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white p-4 md:p-6">
