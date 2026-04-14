@@ -60,9 +60,8 @@ export default function Dashboard() {
             <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <Skeleton height={160} />
               <Skeleton height={160} />
-              <Skeleton height={160} />
+              <Skeleton height={160} />        
             </div>
-            <p className="mt-5 text-sm text-[#666666]">Cargando tu cuenta...</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
-import { Client, Account, Databases, Storage, ID, Query } from "appwrite";
-import type { Miembro, MiembroRol } from "../types/miembro";
+import { Client, Account, Databases, Functions, Storage, ID, Query, ExecutionMethod } from "appwrite";
+import type { Beneficio, BeneficioFormData, Miembro, MiembroRol } from "../types/miembro";
 import type { Empresa, MiembroTitular, SignupFormData } from "../types/signup";
 import { getOtpSmsGateStatus, recordOtpSmsSent } from "./otpRateLimit";
 
@@ -10,14 +10,16 @@ const client = new Client()
   .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
 
 // Servicios disponibles de Appwrite
-export const account = new Account(client);     // Autenticacion y sesiones
-export const databases = new Databases(client); // Base de datos
-export const storage = new Storage(client);     // Almacenamiento de archivos
+export const account = new Account(client);         // Autenticacion y sesiones
+export const databases = new Databases(client);     // Base de datos
+export const storage = new Storage(client);         // Almacenamiento de archivos
+export const functions = new Functions(client);     // Funciones serverless
 
 // IDs de base de datos y tablas
-const DB_ID = "69808b54002bc0fc790f";
-const TABLE_EMPRESAS = "empresas";
-const TABLE_MIEMBROS = "miembros";
+const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const TABLE_EMPRESAS = import.meta.env.VITE_APPWRITE_TABLE_EMPRESAS_ID;
+const TABLE_MIEMBROS = import.meta.env.VITE_APPWRITE_TABLE_MIEMBROS_ID;
+const TABLE_BENEFICIOS = import.meta.env.VITE_APPWRITE_TABLE_BENEFICIOS_ID;
 
 // ---------------------------------------------------------------------------
 // AUTH
@@ -221,4 +223,156 @@ export async function crearMiembro(
     activo: false,         // Requiere activacion por empresa_admin o admin
     ea_customer_sync: false,
   });
+}
+
+// ---------------------------------------------------------------------------
+// BENEFICIOS
+// ---------------------------------------------------------------------------
+
+function documentoABeneficio(doc: Record<string, unknown>): Beneficio {
+  return {
+    $id: String(doc.$id),
+    titulo: String(doc.titulo),
+    descripcion: String(doc.descripcion),
+    fecha_inicio: String(doc.fecha_inicio),
+    fecha_fin: doc.fecha_fin == null ? null : String(doc.fecha_fin),
+    estado_beneficio: String(doc.estado_beneficio),
+    tipo_beneficio: doc.tipo_beneficio == null ? null : String(doc.tipo_beneficio),
+    empresa_id: Array.isArray(doc.empresa_id) ? (doc.empresa_id as string[]) : [],
+    beneficio_image_url: doc.beneficio_image_url == null ? null : String(doc.beneficio_image_url),
+  };
+}
+
+/**
+ * Retorna los beneficios disponibles para un miembro: globales (empresa_id vacío)
+ * y los asignados a su empresa. Ordenados por fecha de creación descendente.
+ *
+ * @param empresaId - ID de la empresa del miembro
+ * @param limit - Máximo de resultados (0 = sin límite). Por defecto 3.
+ */
+export async function getBeneficiosDisponibles(
+  empresaId: string,
+  limit = 3,
+): Promise<Beneficio[]> {
+  // Appwrite no soporta query "array vacío", traemos todos los activos
+  // y filtramos en cliente: globales (empresa_id=[]) + empresa específica.
+  const response = await databases.listDocuments(DB_ID, TABLE_BENEFICIOS, [
+    Query.equal("estado_beneficio", "activa"),
+    Query.orderDesc("$createdAt"),
+    Query.limit(100),
+  ]);
+
+  const disponibles = response.documents.filter((doc) => {
+    const ids = Array.isArray(doc.empresa_id) ? (doc.empresa_id as string[]) : [];
+    return ids.length === 0 || ids.includes(empresaId);
+  });
+
+  const resultado = limit > 0 ? disponibles.slice(0, limit) : disponibles;
+  return resultado.map((doc) => documentoABeneficio(doc as unknown as Record<string, unknown>));
+}
+
+/**
+ * Retorna todos los beneficios sin filtrar (para la vista de administración).
+ */
+export async function getBeneficiosAdmin(): Promise<Beneficio[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_BENEFICIOS, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(100),
+  ]);
+  return response.documents.map((doc) =>
+    documentoABeneficio(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Retorna todas las empresas ordenadas por nombre (para el formulario de beneficios).
+ */
+export async function getTodasLasEmpresas(): Promise<Empresa[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_EMPRESAS, [
+    Query.orderAsc("nombre_empresa"),
+    Query.limit(100),
+  ]);
+  return response.documents.map((doc) => ({
+    $id: doc.$id,
+    nombre_empresa: String(doc.nombre_empresa),
+    codigo_empresa: String(doc.codigo_empresa),
+    estado: doc.estado as "activo" | "inactivo",
+    notas: doc.notas ? String(doc.notas) : undefined,
+  }));
+}
+
+/**
+ * Convierte un File a base64 (sin el prefijo data URL) para enviarlo
+ * a la Appwrite Function que maneja el upload con la API key del servidor.
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Sube una imagen al bucket de beneficios a través de la Appwrite Function,
+ * que verifica el rol admin antes de ejecutar el upload con la API key.
+ */
+export async function subirImagenBeneficio(file: File): Promise<string> {
+  const base64 = await fileToBase64(file);
+
+  const execution = await functions.createExecution(
+    FN_BENEFICIOS_CRUD,
+    JSON.stringify({
+      action: "upload_image",
+      data: { base64, mimeType: file.type, fileName: file.name },
+    }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.message ?? "Error al subir la imagen.");
+  }
+
+  const body = JSON.parse(execution.responseBody);
+  return body.url as string;
+}
+
+const FN_BENEFICIOS_CRUD = import.meta.env.VITE_APPWRITE_BENEFICIOS_CRUD_FN;
+
+/**
+ * Llama a la Appwrite Function `beneficios_crud_actions` con la acción indicada.
+ * La función verifica server-side que el usuario tenga rol = "admin" antes de ejecutar.
+ */
+async function ejecutarBeneficiosFn(
+  action: "create" | "update" | "delete",
+  payload: { id?: string; data?: Partial<BeneficioFormData> },
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_BENEFICIOS_CRUD,
+    JSON.stringify({ action, ...payload }),
+    false,                // async = false (espera respuesta)
+    "/",
+    ExecutionMethod.POST,
+  );
+
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.message ?? "Error en la función de beneficios.");
+  }
+}
+
+export async function crearBeneficio(data: BeneficioFormData): Promise<void> {
+  await ejecutarBeneficiosFn("create", { data });
+}
+
+export async function editarBeneficio(id: string, data: BeneficioFormData): Promise<void> {
+  await ejecutarBeneficiosFn("update", { id, data });
+}
+
+export async function eliminarBeneficio(id: string): Promise<void> {
+  await ejecutarBeneficiosFn("delete", { id });
 }

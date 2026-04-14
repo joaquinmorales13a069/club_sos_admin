@@ -26,6 +26,7 @@ dist-ssr
 # Agents and Skills
 .claude/
 skills/
+skills-lock.json
 tools/
 .agents/
 .cursor/
