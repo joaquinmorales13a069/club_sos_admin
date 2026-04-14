@@ -11,11 +11,14 @@ import {
     IoPersonOutline,
     IoSettingsOutline,
     IoStatsChartOutline,
+    IoShieldOutline,
 } from "react-icons/io5";
-import type { Beneficio, Miembro } from "../../types/miembro";
-import { getBeneficiosDisponibles } from "../../lib/appwrite";
+import type { Beneficio, DocumentoMedico, Miembro } from "../../types/miembro";
+import { descargarDocumento, getBeneficiosDisponibles, getDocumentosRecientes } from "../../lib/appwrite";
+import { IoCloudDownloadOutline } from "react-icons/io5";
 import { DashboardBeneficios } from "./beneficios/DashboardBeneficios";
 import { AdminBeneficios } from "./beneficios/AdminBeneficios";
+import { AdminDocumentos } from "./admin/AdminDocumentos";
 
 
 export type MiembroDashboardSection =
@@ -23,29 +26,24 @@ export type MiembroDashboardSection =
     | "citas"
     | "beneficios"
     | "reportes"
-    | "ajustes";
+    | "ajustes"
+    | "administrar";
 
-const NAV: {
+const NAV_BASE: {
     id: MiembroDashboardSection;
     label: string;
     icon: ReactNode;
+    adminOnly?: boolean;
 }[] = [
-    { id: "inicio", label: "Inicio", icon: <IoHomeOutline size={20} /> },
-    { id: "citas", label: "Citas", icon: <IoCalendarOutline size={20} /> },
-    {
-        id: "beneficios",
-        label: "Beneficios",
-        icon: <IoGiftOutline size={20} />,
-    },
-    {
-        id: "reportes",
-        label: "Mis Reportes",
-        icon: <IoStatsChartOutline size={20} />,
-    },
-    { id: "ajustes", label: "Ajustes", icon: <IoSettingsOutline size={20} /> },
+    { id: "inicio",       label: "Inicio",        icon: <IoHomeOutline size={20} /> },
+    { id: "citas",        label: "Citas",          icon: <IoCalendarOutline size={20} /> },
+    { id: "beneficios",   label: "Beneficios",     icon: <IoGiftOutline size={20} /> },
+    { id: "reportes",     label: "Mis Reportes",   icon: <IoStatsChartOutline size={20} /> },
+    { id: "ajustes",      label: "Ajustes",        icon: <IoSettingsOutline size={20} /> },
+    { id: "administrar",  label: "Administrar",    icon: <IoShieldOutline size={20} />, adminOnly: true },
 ];
 
-/** Datos de ejemplo hasta conectar citas, documentos y beneficios con Appwrite */
+/** Datos de ejemplo hasta conectar citas con Appwrite */
 const MOCK_PROXIMA_CITA = {
     fecha: "15 abr. 2026",
     hora: "10:30",
@@ -53,22 +51,6 @@ const MOCK_PROXIMA_CITA = {
     lugar: "Clínica SOS Medical — Managua",
     estado: "confirmada" as const,
 };
-
-const MOCK_DOCUMENTOS = [
-    {
-        id: "1",
-        titulo: "Resultados de laboratorio",
-        fecha: "2 abr. 2026",
-        tipo: "PDF",
-    },
-    { id: "2", titulo: "Receta médica", fecha: "28 mar. 2026", tipo: "PDF" },
-    {
-        id: "3",
-        titulo: "Informe de consulta",
-        fecha: "15 mar. 2026",
-        tipo: "PDF",
-    },
-];
 
 
 const MOCK_AVISOS = [
@@ -134,12 +116,33 @@ function DashboardInicio({
     const primerNombre = miembro.nombre_completo.split(" ")[0];
     const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
     const [loadingBeneficios, setLoadingBeneficios] = useState(true);
+    const [documentos, setDocumentos] = useState<DocumentoMedico[]>([]);
+    const [loadingDocumentos, setLoadingDocumentos] = useState(true);
+    const [descargando, setDescargando] = useState<string | null>(null);
 
     useEffect(() => {
         getBeneficiosDisponibles(miembro.empresa_id, 3)
             .then(setBeneficios)
             .finally(() => setLoadingBeneficios(false));
     }, [miembro.empresa_id]);
+
+    useEffect(() => {
+        getDocumentosRecientes(miembro.$id, 3)
+            .then(setDocumentos)
+            .finally(() => setLoadingDocumentos(false));
+    }, [miembro.$id]);
+
+    async function handleDescargar(doc: DocumentoMedico) {
+        setDescargando(doc.$id);
+        try {
+            await descargarDocumento(
+                doc.storage_archivo_id,
+                `${doc.nombre_documento}.${doc.tipo_archivo}`,
+            );
+        } finally {
+            setDescargando(null);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -162,32 +165,60 @@ function DashboardInicio({
                     title="Documentos recientes"
                     icon={<IoDocumentTextOutline size={22} />}
                 >
-                    <ul className="space-y-3">
-                        {MOCK_DOCUMENTOS.map((doc) => (
-                            <li
-                                key={doc.id}
-                                className="flex items-center justify-between gap-2 border-b border-[#E5E5E5]/80 pb-3 last:border-0 last:pb-0"
-                            >
-                                <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium text-[#333333]">
-                                        {doc.titulo}
-                                    </p>
-                                    <p className="text-xs text-[#666666]">
-                                        {doc.fecha}
-                                    </p>
-                                </div>
-                                <span className="shrink-0 rounded-md bg-[#F5F3EE] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#666666]">
-                                    {doc.tipo}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                    <button
-                        type="button"
-                        className="mt-4 w-full rounded-xl border border-[#E5E5E5] py-2.5 text-sm font-semibold text-[#0066CC] transition-colors hover:bg-[#0066CC]/5"
-                    >
-                        Ver todos los documentos
-                    </button>
+                    {loadingDocumentos ? (
+                        <div className="space-y-3">
+                            <Skeleton height={56} borderRadius={12} />
+                            <Skeleton height={56} borderRadius={12} />
+                            <Skeleton height={56} borderRadius={12} />
+                        </div>
+                    ) : documentos.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-[#666666]">
+                            No hay documentos disponibles.
+                        </p>
+                    ) : (
+                        <ul className="space-y-3">
+                            {documentos.map((doc) => (
+                                <li
+                                    key={doc.$id}
+                                    className="flex items-center justify-between gap-2 border-b border-[#E5E5E5]/80 pb-3 last:border-0 last:pb-0"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-[#333333]">
+                                            {doc.nombre_documento}
+                                        </p>
+                                        <p className="text-xs text-[#666666]">
+                                            {new Date(doc.fecha_documento).toLocaleDateString("es-NI", {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                            })}
+                                            {" · "}
+                                            {doc.tipo_documento}
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="rounded-md bg-[#F5F3EE] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#666666]">
+                                            {doc.tipo_archivo}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={descargando === doc.$id}
+                                            onClick={() => handleDescargar(doc)}
+                                            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0066CC] transition-colors hover:bg-[#0066CC]/10 disabled:opacity-50"
+                                            title="Descargar documento"
+                                            aria-label={`Descargar ${doc.nombre_documento}`}
+                                        >
+                                            {descargando === doc.$id ? (
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0066CC] border-t-transparent" />
+                                            ) : (
+                                                <IoCloudDownloadOutline size={18} />
+                                            )}
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </HomeCard>
 
                 <HomeCard
@@ -333,6 +364,10 @@ export function DashboardMiembro({ miembro }: { miembro: Miembro }) {
     const [isSectionLoading, setIsSectionLoading] = useState(false);
     const timeoutRef = useRef<number | null>(null);
 
+    const nav = NAV_BASE.filter(
+        (item) => !item.adminOnly || miembro.rol === "admin",
+    );
+
     const handleChangeSection = (nextSection: MiembroDashboardSection) => {
         if (nextSection === section) {
             return;
@@ -363,7 +398,7 @@ export function DashboardMiembro({ miembro }: { miembro: Miembro }) {
                 aria-label="Secciones del panel de miembro"
             >
                 <ul className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap lg:gap-1">
-                    {NAV.map((item) => {
+                    {nav.map((item) => {
                         const active = section === item.id;
                         return (
                             <li
@@ -435,6 +470,11 @@ export function DashboardMiembro({ miembro }: { miembro: Miembro }) {
                         title="Ajustes"
                         description="Preferencias de cuenta, notificaciones y datos de contacto."
                     />
+                )}
+                {!isSectionLoading && section === "administrar" && miembro.rol === "admin" && (
+                    <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
+                        <AdminDocumentos adminNombre={miembro.nombre_completo} />
+                    </div>
                 )}
             </div>
         </div>
