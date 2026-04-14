@@ -6,6 +6,16 @@
       "sourceType": "github",
       "computedHash": "6462f04969f59f771150e6410e6a11fa397f2934be0b51e8650f495feed1e28d"
     },
+    "appwrite-cli": {
+      "source": "appwrite/agent-skills",
+      "sourceType": "github",
+      "computedHash": "fcfe863c4a331f8309639910ed4dccfc59eb749123230a97fccc7a4119d75f30"
+    },
+    "appwrite-typescript": {
+      "source": "appwrite/agent-skills",
+      "sourceType": "github",
+      "computedHash": "38ba75d56d9d6fba0cf6150d9ee9fef5f7ff352b148bf715557c12be6b1a4905"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
