@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import { IoGiftOutline } from "react-icons/io5";
-import type { Beneficio, Miembro } from "../../../types/miembro";
-import { getBeneficiosDisponibles } from "../../../lib/appwrite";
+import type { Beneficio, Miembro } from "../../../../types/miembro";
+import { getBeneficiosDisponibles } from "../../../../lib/appwrite";
 
-export function DashboardBeneficios({ miembro }: { miembro: Miembro }) {
+export function MisBeneficios({ miembro }: { miembro: Miembro }) {
     const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
     const [loading, setLoading] = useState(true);
 

@@ -37,6 +37,18 @@ export interface Beneficio {
   beneficio_image_url: string | null;
 }
 
+export interface DocumentoMedico {
+  $id: string;
+  nombre_documento: string;
+  tipo_documento: string;
+  tipo_archivo: string;
+  fecha_documento: string;
+  estado_archivo: string;
+  miembro_id: string;
+  storage_archivo_id: string;
+  subido_por?: string;
+}
+
 export interface Miembro {
   $id: string;
   auth_user_id: string;

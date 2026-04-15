@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { IoCloseOutline, IoCloudUploadOutline, IoImageOutline } from "react-icons/io5";
-import type { Beneficio, BeneficioFormData, EstadoBeneficio, TipoBeneficio } from "../../../types/miembro";
-import type { Empresa } from "../../../types/signup";
+import type { Beneficio, BeneficioFormData, EstadoBeneficio, TipoBeneficio } from "../../../../types/miembro";
+import type { Empresa } from "../../../../types/signup";
 import {
     crearBeneficio,
     editarBeneficio,
     subirImagenBeneficio,
-} from "../../../lib/appwrite";
+} from "../../../../lib/appwrite";
 
 const ESTADO_OPTIONS: { value: EstadoBeneficio; label: string }[] = [
     { value: "activa", label: "Activa" },
@@ -63,7 +63,6 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
     const [error, setError] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Close on Escape
     useEffect(() => {
         const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
         window.addEventListener("keydown", handler);
@@ -129,7 +128,6 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-                {/* Header */}
                 <div className="flex items-center justify-between border-b border-[#E5E5E5] px-6 py-5">
                     <div>
                         <h2 className="text-lg font-bold text-[#333333]">
@@ -148,7 +146,6 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
                     </button>
                 </div>
 
-                {/* Body */}
                 <form id="beneficio-form" onSubmit={handleSubmit} className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
                     {/* Imagen */}
                     <div>
@@ -158,11 +155,7 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
                         <div className="flex items-start gap-4">
                             <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-[#E5E5E5] bg-[#F5F3EE]">
                                 {imagePreview ? (
-                                    <img
-                                        src={imagePreview}
-                                        alt="Preview"
-                                        className="h-full w-full object-cover"
-                                    />
+                                    <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
                                 ) : (
                                     <IoImageOutline size={28} className="text-[#CCCCCC]" />
                                 )}
@@ -179,11 +172,7 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
                                 {imagePreview && (
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setImageFile(null);
-                                            setImagePreview("");
-                                            setField("beneficio_image_url", "");
-                                        }}
+                                        onClick={() => { setImageFile(null); setImagePreview(""); setField("beneficio_image_url", ""); }}
                                         className="text-left text-xs text-[#666666] underline hover:text-red-600"
                                     >
                                         Quitar imagen
@@ -236,9 +225,7 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
                     {/* Tipo y Estado */}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <label className="mb-1.5 block text-sm font-semibold text-[#333333]">
-                                Tipo de beneficio
-                            </label>
+                            <label className="mb-1.5 block text-sm font-semibold text-[#333333]">Tipo de beneficio</label>
                             <select
                                 value={form.tipo_beneficio}
                                 onChange={(e) => setField("tipo_beneficio", e.target.value as TipoBeneficio | "")}
@@ -342,7 +329,6 @@ export function BeneficioFormModal({ beneficio, empresas, onClose, onSaved }: Pr
                     )}
                 </form>
 
-                {/* Footer */}
                 <div className="flex items-center justify-end gap-3 border-t border-[#E5E5E5] px-6 py-4">
                     <button
                         type="button"

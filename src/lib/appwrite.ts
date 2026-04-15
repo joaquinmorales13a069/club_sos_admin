@@ -1,5 +1,5 @@
 import { Client, Account, Databases, Functions, Storage, ID, Query, ExecutionMethod } from "appwrite";
-import type { Beneficio, BeneficioFormData, Miembro, MiembroRol } from "../types/miembro";
+import type { Beneficio, BeneficioFormData, DocumentoMedico, Miembro, MiembroRol } from "../types/miembro";
 import type { Empresa, MiembroTitular, SignupFormData } from "../types/signup";
 import { getOtpSmsGateStatus, recordOtpSmsSent } from "./otpRateLimit";
 
@@ -342,6 +342,9 @@ export async function subirImagenBeneficio(file: File): Promise<string> {
 }
 
 const FN_BENEFICIOS_CRUD = import.meta.env.VITE_APPWRITE_BENEFICIOS_CRUD_FN;
+const TABLE_DOCUMENTOS = "documentos_medicos";
+const FN_HANDLER_DOCUMENTOS = "69ac29ed001582625f9e";
+const FN_SUBIR_DOCUMENTO = import.meta.env.VITE_APPWRITE_SUBIR_DOCUMENTO_FN;
 
 /**
  * Llama a la Appwrite Function `beneficios_crud_actions` con la acción indicada.
@@ -375,4 +378,236 @@ export async function editarBeneficio(id: string, data: BeneficioFormData): Prom
 
 export async function eliminarBeneficio(id: string): Promise<void> {
   await ejecutarBeneficiosFn("delete", { id });
+}
+
+// ---------------------------------------------------------------------------
+// DOCUMENTOS
+// ---------------------------------------------------------------------------
+
+function documentoADocumentoMedico(doc: Record<string, unknown>): DocumentoMedico {
+  return {
+    $id: String(doc.$id),
+    nombre_documento: String(doc.nombre_documento),
+    tipo_documento: String(doc.tipo_documento),
+    tipo_archivo: String(doc.tipo_archivo),
+    fecha_documento: String(doc.fecha_documento),
+    estado_archivo: String(doc.estado_archivo),
+    miembro_id: String(doc.miembro_id),
+    storage_archivo_id: String(doc.storage_archivo_id),
+    subido_por: doc.subido_por != null ? String(doc.subido_por) : undefined,
+  };
+}
+
+/**
+ * Retorna todos los documentos no eliminados (para la vista de administración).
+ * Ordenados por fecha de creación descendente.
+ */
+export async function getDocumentosAdmin(): Promise<DocumentoMedico[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_DOCUMENTOS, [
+    Query.notEqual("estado_archivo", "eliminado"),
+    Query.orderDesc("$createdAt"),
+    Query.limit(200),
+  ]);
+  return response.documents.map((doc) =>
+    documentoADocumentoMedico(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Dado un conjunto de miembro_ids, retorna un Map de id → nombre_completo.
+ * Usado para mostrar el nombre del miembro en la tabla de documentos sin N+1.
+ */
+export async function getMiembrosPorIds(ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, [
+    Query.equal("$id", ids),
+    Query.limit(ids.length),
+  ]);
+  const map = new Map<string, string>();
+  for (const doc of response.documents) {
+    map.set(doc.$id, String(doc.nombre_completo));
+  }
+  return map;
+}
+
+/**
+ * Actualiza los metadatos de un documento médico via la función server-side.
+ */
+export async function editarDocumentoMetadatos(
+  id: string,
+  data: { nombre_documento: string; tipo_documento: string; fecha_documento: string },
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_SUBIR_DOCUMENTO,
+    JSON.stringify({ action: "editar_metadatos", id, ...data }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al editar metadatos.");
+  }
+}
+
+/**
+ * Soft-delete de un documento médico (estado_archivo → "eliminado") via la función server-side.
+ */
+export async function eliminarDocumento(id: string): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_SUBIR_DOCUMENTO,
+    JSON.stringify({ action: "eliminar", id }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al eliminar el documento.");
+  }
+}
+
+/**
+ * Retorna los últimos documentos activos del miembro, ordenados por fecha
+ * de creación descendente.
+ *
+ * @param miembroId - $id del documento en la tabla miembros
+ * @param limit - Máximo de resultados. Por defecto 3.
+ */
+export async function getDocumentosRecientes(
+  miembroId: string,
+  limit = 3,
+): Promise<DocumentoMedico[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_DOCUMENTOS, [
+    Query.equal("miembro_id", miembroId),
+    Query.equal("estado_archivo", "activo"),
+    Query.orderDesc("$createdAt"),
+    Query.limit(limit),
+  ]);
+
+  return response.documents.map((doc) =>
+    documentoADocumentoMedico(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Descarga un documento via la función `handler_documentos`.
+ * La función verifica server-side que el archivo pertenece al usuario autenticado,
+ * luego retorna el contenido como base64.
+ *
+ * @param fileId - storage_archivo_id del documento
+ * @param fileName - nombre para el archivo descargado (incluir extensión)
+ */
+export async function descargarDocumento(
+  fileId: string,
+  fileName: string,
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_HANDLER_DOCUMENTOS,
+    JSON.stringify({ fileId }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al descargar el documento.");
+  }
+
+  const { base64 } = JSON.parse(execution.responseBody) as { base64: string };
+
+  const bytes = atob(base64);
+  const array = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    array[i] = bytes.charCodeAt(i);
+  }
+  const blob = new Blob([array], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// ADMIN — BÚSQUEDA DE MIEMBROS
+// ---------------------------------------------------------------------------
+
+export type CampoBusqueda = "nombre" | "cedula" | "telefono";
+
+/**
+ * Busca miembros por nombre (prefijo), cédula (exacto) o teléfono (prefijo).
+ * Solo debe llamarse desde contextos admin.
+ *
+ * @param termino - Texto a buscar
+ * @param campo   - Campo sobre el que se busca
+ */
+export async function buscarMiembros(
+  termino: string,
+  campo: CampoBusqueda,
+): Promise<Miembro[]> {
+  const trimmed = termino.trim();
+  if (!trimmed) return [];
+
+  let queries: string[];
+
+  if (campo === "nombre") {
+    queries = [Query.startsWith("nombre_completo", trimmed), Query.limit(10)];
+  } else if (campo === "cedula") {
+    queries = [Query.startsWith("documento_identidad", trimmed), Query.limit(10)];
+  } else {
+    queries = [Query.startsWith("telefono", trimmed), Query.limit(10)];
+  }
+
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, queries);
+  return response.documents.map((doc) =>
+    documentoAMiembro(doc as unknown as Record<string, unknown>),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ADMIN — SUBIR DOCUMENTO MÉDICO
+// ---------------------------------------------------------------------------
+
+export interface SubirDocumentoParams {
+  file: File;
+  miembro_id: string;
+  nombre_documento: string;
+  tipo_documento: string;
+  fecha_documento: string;
+}
+
+/**
+ * Sube un documento médico al bucket y registra sus metadatos via la función
+ * `handler_subir_documento`, que verifica rol admin server-side.
+ */
+export async function subirDocumentoMedico(
+  params: SubirDocumentoParams,
+): Promise<void> {
+  const base64 = await fileToBase64(params.file);
+
+  const execution = await functions.createExecution(
+    FN_SUBIR_DOCUMENTO,
+    JSON.stringify({
+      base64,
+      mimeType: params.file.type,
+      fileName: params.file.name,
+      miembro_id: params.miembro_id,
+      nombre_documento: params.nombre_documento,
+      tipo_documento: params.tipo_documento,
+      fecha_documento: params.fecha_documento,
+    }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al subir el documento.");
+  }
 }
