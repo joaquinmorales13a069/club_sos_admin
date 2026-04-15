@@ -384,6 +384,89 @@ export async function eliminarBeneficio(id: string): Promise<void> {
 // DOCUMENTOS
 // ---------------------------------------------------------------------------
 
+function documentoADocumentoMedico(doc: Record<string, unknown>): DocumentoMedico {
+  return {
+    $id: String(doc.$id),
+    nombre_documento: String(doc.nombre_documento),
+    tipo_documento: String(doc.tipo_documento),
+    tipo_archivo: String(doc.tipo_archivo),
+    fecha_documento: String(doc.fecha_documento),
+    estado_archivo: String(doc.estado_archivo),
+    miembro_id: String(doc.miembro_id),
+    storage_archivo_id: String(doc.storage_archivo_id),
+    subido_por: doc.subido_por != null ? String(doc.subido_por) : undefined,
+  };
+}
+
+/**
+ * Retorna todos los documentos no eliminados (para la vista de administración).
+ * Ordenados por fecha de creación descendente.
+ */
+export async function getDocumentosAdmin(): Promise<DocumentoMedico[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_DOCUMENTOS, [
+    Query.notEqual("estado_archivo", "eliminado"),
+    Query.orderDesc("$createdAt"),
+    Query.limit(200),
+  ]);
+  return response.documents.map((doc) =>
+    documentoADocumentoMedico(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Dado un conjunto de miembro_ids, retorna un Map de id → nombre_completo.
+ * Usado para mostrar el nombre del miembro en la tabla de documentos sin N+1.
+ */
+export async function getMiembrosPorIds(ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, [
+    Query.equal("$id", ids),
+    Query.limit(ids.length),
+  ]);
+  const map = new Map<string, string>();
+  for (const doc of response.documents) {
+    map.set(doc.$id, String(doc.nombre_completo));
+  }
+  return map;
+}
+
+/**
+ * Actualiza los metadatos de un documento médico via la función server-side.
+ */
+export async function editarDocumentoMetadatos(
+  id: string,
+  data: { nombre_documento: string; tipo_documento: string; fecha_documento: string },
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_SUBIR_DOCUMENTO,
+    JSON.stringify({ action: "editar_metadatos", id, ...data }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al editar metadatos.");
+  }
+}
+
+/**
+ * Soft-delete de un documento médico (estado_archivo → "eliminado") via la función server-side.
+ */
+export async function eliminarDocumento(id: string): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_SUBIR_DOCUMENTO,
+    JSON.stringify({ action: "eliminar", id }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al eliminar el documento.");
+  }
+}
+
 /**
  * Retorna los últimos documentos activos del miembro, ordenados por fecha
  * de creación descendente.
@@ -402,16 +485,9 @@ export async function getDocumentosRecientes(
     Query.limit(limit),
   ]);
 
-  return response.documents.map((doc) => ({
-    $id: String(doc.$id),
-    nombre_documento: String(doc.nombre_documento),
-    tipo_documento: String(doc.tipo_documento),
-    tipo_archivo: String(doc.tipo_archivo),
-    fecha_documento: String(doc.fecha_documento),
-    estado_archivo: String(doc.estado_archivo),
-    miembro_id: String(doc.miembro_id),
-    storage_archivo_id: String(doc.storage_archivo_id),
-  }));
+  return response.documents.map((doc) =>
+    documentoADocumentoMedico(doc as unknown as Record<string, unknown>),
+  );
 }
 
 /**

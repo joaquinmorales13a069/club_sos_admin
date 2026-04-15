@@ -46,6 +46,7 @@ export interface DocumentoMedico {
   estado_archivo: string;
   miembro_id: string;
   storage_archivo_id: string;
+  subido_por?: string;
 }
 
 export interface Miembro {
