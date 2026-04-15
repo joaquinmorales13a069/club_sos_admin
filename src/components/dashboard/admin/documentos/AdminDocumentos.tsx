@@ -509,7 +509,7 @@ function EditarMetadatosModal({ doc, onClose, onSaved }: EditarModalProps) {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export function AdminDocumentos({ adminNombre: _adminNombre }: { adminNombre: string }) {
+export function AdminDocumentos() {
     const [docs, setDocs] = useState<DocumentoMedico[]>([]);
     const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
     const [loading, setLoading] = useState(true);
