@@ -1,4 +1,4 @@
-export type EstadoSync = "pendiente" | "sincronizado" | "fallido";
+export type EstadoSync = "pendiente" | "sincronizado" | "fallido" | "cancelado";
 
 export interface Cita {
   $id: string;

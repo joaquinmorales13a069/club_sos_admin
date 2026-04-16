@@ -157,14 +157,16 @@ export function MisCitas({ miembro }: MisCitasProps) {
     }
   }
 
-  async function handleDelete(citaId: string) {
+  async function handleCancel(citaId: string) {
     try {
-      await databases.deleteDocument(DB_ID, TABLE_CITAS, citaId);
-      toast.success("Cita eliminada");
+      await databases.updateDocument(DB_ID, TABLE_CITAS, citaId, {
+        estado_sync: "cancelado",
+      });
+      toast.success("Cita cancelada");
       setLoading(true);
       fetchCitas();
     } catch {
-      toast.error("Error al eliminar la cita");
+      toast.error("Error al cancelar la cita");
     }
   }
 
@@ -362,7 +364,7 @@ export function MisCitas({ miembro }: MisCitasProps) {
               serviceMap={serviceMap}
               doctorMap={doctorMap}
               onEdit={() => handleEdit(cita)}
-              onDelete={() => handleDelete(cita.$id)}
+              onCancel={() => handleCancel(cita.$id)}
             />
           ))}
         </div>
