@@ -64,4 +64,5 @@ export interface Miembro {
   rol: MiembroRol;
   activo: boolean;
   ea_customer_sync?: boolean;
+  ea_customer_id?: string | null;
 }

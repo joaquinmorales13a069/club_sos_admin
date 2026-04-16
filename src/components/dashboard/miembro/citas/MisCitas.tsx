@@ -136,7 +136,7 @@ export function MisCitas({ miembro }: MisCitasProps) {
         fecha_hora_cita: fechaHoraCita,
         ea_service_id: String(wizard.eaServiceId),
         ea_provider_id: String(wizard.eaProviderId),
-        ea_customer_id: "",
+        ea_customer_id: miembro.ea_customer_id ?? "",
         para_titular: wizard.paraTitular,
         paciente_nombre: wizard.pacienteNombre,
         paciente_telefono: wizard.pacienteTelefono || null,
