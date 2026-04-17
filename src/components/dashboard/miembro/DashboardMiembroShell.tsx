@@ -5,6 +5,7 @@ import {
     IoCalendarOutline,
     IoGiftOutline,
     IoHomeOutline,
+    IoPeopleOutline,
     IoSettingsOutline,
     IoStatsChartOutline,
 } from "react-icons/io5";
@@ -14,12 +15,13 @@ import { SectionPlaceholder } from "../shared/SectionPlaceholder";
 import { DashboardInicio } from "../inicio/DashboardInicio";
 import { MisBeneficios } from "./beneficios/MisBeneficios";
 import { MisCitas } from "./citas/MisCitas";
+import { MiFamilia } from "./familia/MiFamilia";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
 type NavItem = { id: MiembroDashboardSection; label: string; icon: ReactNode };
 
-const NAV: NavItem[] = [
+const NAV_BASE: NavItem[] = [
     { id: "inicio",     label: "Inicio",       icon: <IoHomeOutline size={18} /> },
     { id: "citas",      label: "Citas",         icon: <IoCalendarOutline size={18} /> },
     { id: "beneficios", label: "Beneficios",    icon: <IoGiftOutline size={18} /> },
@@ -27,9 +29,14 @@ const NAV: NavItem[] = [
     { id: "ajustes",    label: "Ajustes",       icon: <IoSettingsOutline size={18} /> },
 ];
 
+const NAV_FAMILIA: NavItem = { id: "mi_familia", label: "Mi Familia", icon: <IoPeopleOutline size={18} /> };
+
 // ── Shell ────────────────────────────────────────────────────────────────────
 
 export function DashboardMiembroShell({ miembro }: { miembro: Miembro }) {
+    const esTitular = miembro.parentesco === "titular";
+    const NAV = esTitular ? [...NAV_BASE, NAV_FAMILIA] : NAV_BASE;
+
     const [section, setSection] = useState<MiembroDashboardSection>("inicio");
     const [loading, setLoading] = useState(false);
     const timerRef = useRef<number | null>(null);
@@ -71,6 +78,11 @@ export function DashboardMiembroShell({ miembro }: { miembro: Miembro }) {
                         {section === "beneficios" && <MisBeneficios miembro={miembro} />}
                         {section === "reportes"   && <SectionPlaceholder title="Mis reportes" description="Historial de solicitudes e informes enviados al equipo de ClubSOS." />}
                         {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}
+                        {section === "mi_familia" && esTitular && (
+                            <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
+                                <MiFamilia miembro={miembro} />
+                            </div>
+                        )}
                     </>
                 )}
             </div>

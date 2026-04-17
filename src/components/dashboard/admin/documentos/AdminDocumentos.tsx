@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { usePaginacion } from "../../../../hooks/usePaginacion";
+import { PaginacionControles } from "../../shared/PaginacionControles";
 import Skeleton from "react-loading-skeleton";
 import { toast } from "react-toastify";
 import {
@@ -558,6 +560,8 @@ export function AdminDocumentos() {
         return true;
     });
 
+    const { paginaActual, pagina, totalPaginas, total, setPagina } = usePaginacion(filtered, 20);
+
     async function handleDescargar(doc: DocumentoMedico) {
         setDownloadingId(doc.$id);
         try {
@@ -695,7 +699,7 @@ export function AdminDocumentos() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E5E5]/80">
-                                {filtered.map((doc) => (
+                                {paginaActual.map((doc) => (
                                     <tr key={doc.$id} className="transition-colors hover:bg-[#F5F3EE]/40">
                                         <td className="px-4 py-3">
                                             <p className="font-semibold text-[#333333]">{doc.nombre_documento}</p>
@@ -789,6 +793,8 @@ export function AdminDocumentos() {
                     </div>
                 </div>
             )}
+
+            <PaginacionControles pagina={pagina} totalPaginas={totalPaginas} total={total} porPagina={20} onCambiar={setPagina} />
 
             {/* Modals */}
             {modalSubir && (

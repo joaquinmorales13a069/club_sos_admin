@@ -18,6 +18,7 @@ import { MisBeneficios } from "../miembro/beneficios/MisBeneficios";
 import { MisCitas } from "../miembro/citas/MisCitas";
 import { EmpresaCitasRegistro } from "./EmpresaCitasRegistro";
 import { EmpresaAjustes } from "./EmpresaAjustes";
+import { EmpresaUsuarios } from "./EmpresaUsuarios";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,8 @@ const NAV_GROUPS: NavGroup[] = [
         groupIcon: <IoBusinessOutline size={13} />,
         items: [
             { id: "empresa_citas",   label: "Registro de Citas", icon: <IoCalendarOutline size={18} /> },
-            { id: "empresa_ajustes", label: "Ajustes empresa",    icon: <IoSettingsOutline size={18} /> },
+            { id: "empresa_ajustes",  label: "Ajustes empresa",    icon: <IoSettingsOutline size={18} /> },
+            { id: "empresa_usuarios", label: "Gestionar Usuarios", icon: <IoPersonOutline size={18} /> },
         ],
     },
 ];
@@ -117,7 +119,12 @@ export function DashboardEmpresaAdminShell({ miembro }: { miembro: Miembro }) {
 
                         {/* Administrar Empresa */}
                         {section === "empresa_citas"   && <EmpresaCitasRegistro miembro={miembro} />}
-                        {section === "empresa_ajustes" && <EmpresaAjustes miembro={miembro} />}
+                        {section === "empresa_ajustes"  && <EmpresaAjustes miembro={miembro} />}
+                        {section === "empresa_usuarios" && (
+                            <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
+                                <EmpresaUsuarios miembro={miembro} />
+                            </div>
+                        )}
                     </>
                 )}
             </div>

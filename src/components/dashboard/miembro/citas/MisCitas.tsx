@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { usePaginacion } from "../../../../hooks/usePaginacion";
+import { PaginacionControles } from "../../shared/PaginacionControles";
 import Skeleton from "react-loading-skeleton";
 import { toast } from "react-toastify";
 import {
@@ -162,6 +164,9 @@ export function MisCitas({ miembro }: MisCitasProps) {
     }
   }
 
+  // Pagination — must be declared before any early return (React rules)
+  const { paginaActual, pagina, totalPaginas, total, setPagina } = usePaginacion(citas, 10);
+
   // ── Wizard steps render ──
 
   if (step !== "lista") {
@@ -316,8 +321,9 @@ export function MisCitas({ miembro }: MisCitasProps) {
         </div>
       ) : (
         /* Citas grid */
-        <div className="grid gap-4 sm:grid-cols-2">
-          {citas.map((cita) => (
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+          {paginaActual.map((cita) => (
             <CitaCard
               key={cita.$id}
               cita={cita}
@@ -333,6 +339,8 @@ export function MisCitas({ miembro }: MisCitasProps) {
               onCancel={() => handleCancel(cita.$id)}
             />
           ))}
+          </div>
+          <PaginacionControles pagina={pagina} totalPaginas={totalPaginas} total={total} porPagina={10} onCambiar={setPagina} />
         </div>
       )}
     </div>

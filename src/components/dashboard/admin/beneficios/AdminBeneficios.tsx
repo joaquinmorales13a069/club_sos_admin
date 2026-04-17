@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { usePaginacion } from "../../../../hooks/usePaginacion";
+import { PaginacionControles } from "../../shared/PaginacionControles";
 import Skeleton from "react-loading-skeleton";
 import {
     IoAddOutline,
@@ -59,6 +61,8 @@ export function AdminBeneficios() {
         }
     }
 
+    const { paginaActual, pagina, totalPaginas, total, setPagina } = usePaginacion(beneficios, 20);
+
     return (
         <div className="space-y-6">
             <header className="flex flex-col gap-4 rounded-2xl border border-[#0066CC]/15 bg-linear-to-br from-white to-[#0066CC]/6 px-5 py-6 sm:flex-row sm:items-center sm:justify-between md:px-7">
@@ -108,7 +112,7 @@ export function AdminBeneficios() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E5E5]/80">
-                                {beneficios.map((b) => (
+                                {paginaActual.map((b) => (
                                     <tr key={b.$id} className="transition-colors hover:bg-[#F5F3EE]/40">
                                         <td className="px-4 py-3">
                                             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-[#E5E5E5] bg-[#F5F3EE]">
@@ -184,6 +188,8 @@ export function AdminBeneficios() {
                     </div>
                 </div>
             )}
+
+            <PaginacionControles pagina={pagina} totalPaginas={totalPaginas} total={total} porPagina={20} onCambiar={setPagina} />
 
             {modalOpen && (
                 <BeneficioFormModal
