@@ -95,6 +95,8 @@ function documentoAMiembro(doc: Record<string, unknown>): Miembro {
     activo: Boolean(doc.activo),
     ea_customer_sync:
       doc.ea_customer_sync == null ? undefined : Boolean(doc.ea_customer_sync),
+    ea_customer_id:
+      doc.ea_customer_id == null ? null : String(doc.ea_customer_id),
   };
 }
 
@@ -143,6 +145,54 @@ export async function buscarEmpresaPorCodigo(codigo: string): Promise<Empresa | 
     codigo_empresa: doc.codigo_empresa,
     estado: doc.estado,
     notas: doc.notas,
+  };
+}
+
+/**
+ * Obtiene una empresa por su $id. Retorna null si no existe.
+ */
+export async function getEmpresaPorId(empresaId: string): Promise<Empresa | null> {
+  try {
+    const doc = await databases.getDocument(DB_ID, TABLE_EMPRESAS, empresaId);
+    return {
+      $id: doc.$id,
+      nombre_empresa: String(doc.nombre_empresa),
+      codigo_empresa: String(doc.codigo_empresa),
+      estado: (doc.estado === "inactivo" ? "inactivo" : "activo") as Empresa["estado"],
+      notas: doc.notas != null ? String(doc.notas) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Actualiza los datos editables de una empresa a través de la Appwrite Function
+ * `empresa_admin_crud`, que valida server-side el rol del caller (admin puede
+ * editar cualquier empresa, empresa_admin solo la propia) y la unicidad del
+ * `codigo_empresa`.
+ */
+export async function actualizarEmpresa(
+  empresaId: string,
+  data: Partial<Pick<Empresa, "nombre_empresa" | "codigo_empresa" | "notas">>,
+): Promise<Empresa> {
+  const body = await ejecutarEmpresaAdminFn<{ empresa: Record<string, unknown> }>({
+    action: "actualizar_empresa",
+    empresa_id: empresaId,
+    data: {
+      ...(data.nombre_empresa !== undefined && { nombre_empresa: data.nombre_empresa }),
+      ...(data.codigo_empresa !== undefined && { codigo_empresa: data.codigo_empresa }),
+      ...(data.notas !== undefined && { notas: data.notas || null }),
+    },
+  });
+
+  const doc = body.empresa;
+  return {
+    $id: String(doc.$id),
+    nombre_empresa: String(doc.nombre_empresa),
+    codigo_empresa: String(doc.codigo_empresa),
+    estado: (doc.estado === "inactivo" ? "inactivo" : "activo") as Empresa["estado"],
+    notas: doc.notas != null ? String(doc.notas) : undefined,
   };
 }
 
@@ -610,4 +660,286 @@ export async function subirDocumentoMedico(
     const body = JSON.parse(execution.responseBody || "{}");
     throw new Error(body.error ?? "Error al subir el documento.");
   }
+}
+
+// ---------------------------------------------------------------------------
+// EMPRESA_ADMIN — CITAS DE LA EMPRESA
+// ---------------------------------------------------------------------------
+
+const TABLE_CITAS = import.meta.env.VITE_APPWRITE_TABLE_CITAS_ID;
+const TABLE_SERVICIOS = import.meta.env.VITE_APPWRITE_TABLE_SERVICIOS_ID;
+const TABLE_DOCTORES = import.meta.env.VITE_APPWRITE_TABLE_DOCTORES_ID;
+
+export interface CitaEmpresaRow {
+  $id: string;
+  miembro_id: string;
+  miembro_nombre: string;
+  empresa_id: string;
+  fecha_hora_cita: string;
+  motivo_cita: string | null;
+  ea_service_id: string;
+  servicio_nombre: string;
+  ea_provider_id: string;
+  doctor_nombre: string;
+  ea_customer_id: string;
+  estado_sync: string;
+  ea_appointment_id: string | null;
+  para_titular: boolean;
+  paciente_nombre: string;
+  paciente_telefono: string | null;
+  paciente_correo: string | null;
+  paciente_cedula: string | null;
+  $createdAt: string;
+}
+
+/**
+ * Lista todas las citas asociadas a una empresa, enriquecidas con
+ * nombres de miembro, servicio y doctor. Ordenadas por fecha de la cita
+ * descendente (las más recientes primero).
+ */
+export async function getCitasPorEmpresa(
+  empresaId: string,
+): Promise<CitaEmpresaRow[]> {
+  const citasRes = await databases.listDocuments(DB_ID, TABLE_CITAS, [
+    Query.equal("empresa_id", empresaId),
+    Query.orderDesc("fecha_hora_cita"),
+    Query.limit(200),
+  ]);
+
+  const citas = citasRes.documents as unknown as Array<{
+    $id: string;
+    miembro_id: string;
+    empresa_id: string;
+    fecha_hora_cita: string;
+    motivo_cita: string | null;
+    ea_service_id: string;
+    ea_provider_id: string;
+    ea_customer_id: string;
+    estado_sync: string;
+    ea_appointment_id: string | null;
+    para_titular: boolean;
+    paciente_nombre: string;
+    paciente_telefono: string | null;
+    paciente_correo: string | null;
+    paciente_cedula: string | null;
+    $createdAt: string;
+  }>;
+
+  if (citas.length === 0) return [];
+
+  const miembroIds = [...new Set(citas.map((c) => c.miembro_id))];
+  const serviceEaIds = [
+    ...new Set(citas.map((c) => parseInt(c.ea_service_id)).filter((n) => !Number.isNaN(n))),
+  ];
+  const providerEaIds = [
+    ...new Set(citas.map((c) => parseInt(c.ea_provider_id)).filter((n) => !Number.isNaN(n))),
+  ];
+
+  const [miembrosMap, servicesRes, doctoresRes] = await Promise.all([
+    getMiembrosPorIds(miembroIds),
+    serviceEaIds.length > 0
+      ? databases.listDocuments(DB_ID, TABLE_SERVICIOS, [
+          Query.equal("ea_id", serviceEaIds),
+          Query.limit(serviceEaIds.length),
+        ])
+      : Promise.resolve({ documents: [] as Array<Record<string, unknown>> }),
+    providerEaIds.length > 0
+      ? databases.listDocuments(DB_ID, TABLE_DOCTORES, [
+          Query.equal("ea_id", providerEaIds),
+          Query.limit(providerEaIds.length),
+        ])
+      : Promise.resolve({ documents: [] as Array<Record<string, unknown>> }),
+  ]);
+
+  const servicioMap = new Map<number, string>(
+    servicesRes.documents.map((d) => [Number(d.ea_id), String(d.nombre)] as const),
+  );
+  const doctorMap = new Map<number, string>(
+    doctoresRes.documents.map((d) => [
+      Number(d.ea_id),
+      `${d.nombres ?? ""} ${d.apellidos ?? ""}`.trim(),
+    ] as const),
+  );
+
+  return citas.map((c) => ({
+    $id: c.$id,
+    miembro_id: c.miembro_id,
+    miembro_nombre: miembrosMap.get(c.miembro_id) ?? "Miembro",
+    empresa_id: c.empresa_id,
+    fecha_hora_cita: c.fecha_hora_cita,
+    motivo_cita: c.motivo_cita,
+    ea_service_id: c.ea_service_id,
+    servicio_nombre: servicioMap.get(parseInt(c.ea_service_id)) ?? "Servicio",
+    ea_provider_id: c.ea_provider_id,
+    doctor_nombre: doctorMap.get(parseInt(c.ea_provider_id)) ?? "Doctor",
+    ea_customer_id: c.ea_customer_id,
+    estado_sync: c.estado_sync,
+    ea_appointment_id: c.ea_appointment_id,
+    para_titular: c.para_titular,
+    paciente_nombre: c.paciente_nombre,
+    paciente_telefono: c.paciente_telefono,
+    paciente_correo: c.paciente_correo,
+    paciente_cedula: c.paciente_cedula,
+    $createdAt: c.$createdAt,
+  }));
+}
+
+export interface CitaAdminRow extends CitaEmpresaRow {
+  empresa_nombre: string;
+}
+
+/**
+ * Lista citas de todas las empresas (vista admin global). Misma forma que
+ * {@link getCitasPorEmpresa} más el nombre de la empresa. Requiere permisos
+ * de lectura sobre la colección `citas` para el rol admin.
+ */
+export async function getCitasTodasAdmin(): Promise<CitaAdminRow[]> {
+  const citasRes = await databases.listDocuments(DB_ID, TABLE_CITAS, [
+    Query.orderDesc("fecha_hora_cita"),
+    Query.limit(200),
+  ]);
+
+  const citas = citasRes.documents as unknown as Array<{
+    $id: string;
+    miembro_id: string;
+    empresa_id: string;
+    fecha_hora_cita: string;
+    motivo_cita: string | null;
+    ea_service_id: string;
+    ea_provider_id: string;
+    ea_customer_id: string;
+    estado_sync: string;
+    ea_appointment_id: string | null;
+    para_titular: boolean;
+    paciente_nombre: string;
+    paciente_telefono: string | null;
+    paciente_correo: string | null;
+    paciente_cedula: string | null;
+    $createdAt: string;
+  }>;
+
+  if (citas.length === 0) return [];
+
+  const miembroIds = [...new Set(citas.map((c) => c.miembro_id))];
+  const empresaIds = [...new Set(citas.map((c) => c.empresa_id))];
+  const serviceEaIds = [
+    ...new Set(citas.map((c) => parseInt(c.ea_service_id)).filter((n) => !Number.isNaN(n))),
+  ];
+  const providerEaIds = [
+    ...new Set(citas.map((c) => parseInt(c.ea_provider_id)).filter((n) => !Number.isNaN(n))),
+  ];
+
+  const [miembrosMap, empresasRes, servicesRes, doctoresRes] = await Promise.all([
+    getMiembrosPorIds(miembroIds),
+    databases.listDocuments(DB_ID, TABLE_EMPRESAS, [
+      Query.equal("$id", empresaIds),
+      Query.limit(empresaIds.length),
+    ]),
+    serviceEaIds.length > 0
+      ? databases.listDocuments(DB_ID, TABLE_SERVICIOS, [
+          Query.equal("ea_id", serviceEaIds),
+          Query.limit(serviceEaIds.length),
+        ])
+      : Promise.resolve({ documents: [] as Array<Record<string, unknown>> }),
+    providerEaIds.length > 0
+      ? databases.listDocuments(DB_ID, TABLE_DOCTORES, [
+          Query.equal("ea_id", providerEaIds),
+          Query.limit(providerEaIds.length),
+        ])
+      : Promise.resolve({ documents: [] as Array<Record<string, unknown>> }),
+  ]);
+
+  const empresaNombreMap = new Map<string, string>(
+    empresasRes.documents.map(
+      (d) => [String(d.$id), String(d.nombre_empresa)] as const,
+    ),
+  );
+  const servicioMap = new Map<number, string>(
+    servicesRes.documents.map((d) => [Number(d.ea_id), String(d.nombre)] as const),
+  );
+  const doctorMap = new Map<number, string>(
+    doctoresRes.documents.map((d) => [
+      Number(d.ea_id),
+      `${d.nombres ?? ""} ${d.apellidos ?? ""}`.trim(),
+    ] as const),
+  );
+
+  return citas.map((c) => ({
+    $id: c.$id,
+    miembro_id: c.miembro_id,
+    miembro_nombre: miembrosMap.get(c.miembro_id) ?? "Miembro",
+    empresa_id: c.empresa_id,
+    empresa_nombre: empresaNombreMap.get(c.empresa_id) ?? "Empresa",
+    fecha_hora_cita: c.fecha_hora_cita,
+    motivo_cita: c.motivo_cita,
+    ea_service_id: c.ea_service_id,
+    servicio_nombre: servicioMap.get(parseInt(c.ea_service_id)) ?? "Servicio",
+    ea_provider_id: c.ea_provider_id,
+    doctor_nombre: doctorMap.get(parseInt(c.ea_provider_id)) ?? "Doctor",
+    ea_customer_id: c.ea_customer_id,
+    estado_sync: c.estado_sync,
+    ea_appointment_id: c.ea_appointment_id,
+    para_titular: c.para_titular,
+    paciente_nombre: c.paciente_nombre,
+    paciente_telefono: c.paciente_telefono,
+    paciente_correo: c.paciente_correo,
+    paciente_cedula: c.paciente_cedula,
+    $createdAt: c.$createdAt,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// EMPRESA_ADMIN — FUNCTION WRAPPER
+// ---------------------------------------------------------------------------
+
+const FN_EMPRESA_ADMIN = import.meta.env.VITE_APPWRITE_EMPRESA_ADMIN_FN;
+
+/**
+ * Llama a la Appwrite Function `empresa_admin_crud` con la acción y payload
+ * indicados. La Function resuelve el rol del caller a partir del header
+ * `x-appwrite-user-id` y aplica las autorizaciones correspondientes.
+ */
+async function ejecutarEmpresaAdminFn<T = unknown>(
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const execution = await functions.createExecution(
+    FN_EMPRESA_ADMIN,
+    JSON.stringify(payload),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+
+  const body = execution.responseBody ? JSON.parse(execution.responseBody) : {};
+  if (execution.responseStatusCode >= 400) {
+    throw new Error(body.message ?? "Error en la función empresa_admin_crud.");
+  }
+  return body as T;
+}
+
+/**
+ * Aprueba una cita pendiente: la marca como `sincronizado` y crea la cita
+ * en Easy!Appointments. Permitido para admin y empresa_admin (de la empresa
+ * dueña de la cita).
+ */
+export async function aprobarCita(citaId: string): Promise<void> {
+  await ejecutarEmpresaAdminFn({ action: "aprobar_cita", cita_id: citaId });
+}
+
+/**
+ * Rechaza una cita pendiente: la marca como `fallido`. Permitido para admin
+ * y empresa_admin (de la empresa dueña de la cita).
+ */
+export async function rechazarCita(citaId: string): Promise<void> {
+  await ejecutarEmpresaAdminFn({ action: "rechazar_cita", cita_id: citaId });
+}
+
+/**
+ * Cancela una cita (pendiente o sincronizada): la marca como `cancelado` y,
+ * si ya estaba sincronizada en EA, elimina la cita en Easy!Appointments.
+ * Permitido para el miembro dueño de la cita, empresa_admin de la empresa
+ * dueña, o admin global.
+ */
+export async function cancelarCita(citaId: string): Promise<void> {
+  await ejecutarEmpresaAdminFn({ action: "cancelar_cita", cita_id: citaId });
 }

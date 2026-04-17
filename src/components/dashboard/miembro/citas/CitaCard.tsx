@@ -3,7 +3,6 @@ import {
   IoCheckmarkCircleOutline,
   IoTimeOutline,
   IoCloseCircleOutline,
-  IoCreateOutline,
   IoTrashOutline,
 } from "react-icons/io5";
 import type { Cita, EstadoSync, Servicio } from "../../../../types/citas";
@@ -72,7 +71,6 @@ interface CitaCardProps {
   doctorNombre: string;
   serviceMap: Map<number, Servicio>;
   doctorMap: Map<number, string>;
-  onEdit: () => void;
   onCancel: () => void;
 }
 
@@ -80,7 +78,6 @@ export function CitaCard({
   cita,
   servicioNombre,
   doctorNombre,
-  onEdit,
   onCancel,
 }: CitaCardProps) {
   const [cancelling, setCancelling] = useState(false);
@@ -124,18 +121,8 @@ export function CitaCard({
       </div>
 
       {/* Acciones */}
-      {cita.estado_sync !== "cancelado" && (
+      {(cita.estado_sync === "pendiente" || cita.estado_sync === "sincronizado") && (
         <div className="mt-4 flex items-center gap-2">
-          {cita.estado_sync === "pendiente" && (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] px-3 py-1.5 text-xs font-semibold text-[#0066CC] hover:bg-[#F5F3EE] transition-colors cursor-pointer"
-            >
-              <IoCreateOutline size={14} />
-              Editar
-            </button>
-          )}
           <button
             type="button"
             onClick={handleCancel}

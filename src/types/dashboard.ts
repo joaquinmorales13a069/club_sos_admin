@@ -6,4 +6,6 @@ export type MiembroDashboardSection =
     | "ajustes"
     | "admin_citas"
     | "admin_beneficios"
-    | "admin_documentos";
+    | "admin_documentos"
+    | "empresa_citas"
+    | "empresa_ajustes";

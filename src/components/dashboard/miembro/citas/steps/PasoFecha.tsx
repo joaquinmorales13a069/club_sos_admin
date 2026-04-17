@@ -3,14 +3,18 @@ import { DayPicker } from "react-day-picker";
 import { es as esBase } from "date-fns/locale";
 import type { Locale } from "date-fns";
 
+type MonthFn = NonNullable<Locale["localize"]>["month"];
+
+const monthLocalized: MonthFn = ((n, options) => {
+  const raw = esBase.localize!.month(n, options) as string;
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}) as MonthFn;
+
 const es: Locale = {
   ...esBase,
   localize: {
     ...esBase.localize!,
-    month: ((n: number, options?: { width?: string }) => {
-      const raw = esBase.localize!.month(n, options) as string;
-      return raw.charAt(0).toUpperCase() + raw.slice(1);
-    }) as Locale["localize"]["month"],
+    month: monthLocalized,
   },
 };
 import { IoInformationCircleOutline } from "react-icons/io5";

@@ -137,11 +137,7 @@ export function PasoConfirmar({
           className="flex items-center gap-2 rounded-xl bg-[#0066CC] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0055AA] disabled:opacity-60 cursor-pointer"
         >
           <IoCheckmarkCircleOutline size={18} />
-          {submitting
-            ? "Agendando..."
-            : wizard.citaIdToEdit
-              ? "Reagendar cita"
-              : "Confirmar cita"}
+          {submitting ? "Agendando..." : "Confirmar cita"}
         </button>
       </div>
     </div>

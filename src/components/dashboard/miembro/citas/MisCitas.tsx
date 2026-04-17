@@ -7,7 +7,7 @@ import {
   IoArrowBackOutline,
 } from "react-icons/io5";
 import { Query } from "appwrite";
-import { databases } from "../../../../lib/appwrite";
+import { databases, cancelarCita } from "../../../../lib/appwrite";
 import { ID } from "appwrite";
 import type { Miembro } from "../../../../types/miembro";
 import type {
@@ -122,14 +122,6 @@ export function MisCitas({ miembro }: MisCitasProps) {
     try {
       const fechaHoraCita = `${wizard.fecha}T${wizard.hora}:00.000+00:00`;
 
-      if (wizard.citaIdToEdit) {
-        await databases.deleteDocument(
-          DB_ID,
-          TABLE_CITAS,
-          wizard.citaIdToEdit,
-        );
-      }
-
       await databases.createDocument(DB_ID, TABLE_CITAS, ID.unique(), {
         miembro_id: miembro.$id,
         empresa_id: miembro.empresa_id,
@@ -159,33 +151,15 @@ export function MisCitas({ miembro }: MisCitasProps) {
 
   async function handleCancel(citaId: string) {
     try {
-      await databases.updateDocument(DB_ID, TABLE_CITAS, citaId, {
-        estado_sync: "cancelado",
-      });
+      await cancelarCita(citaId);
       toast.success("Cita cancelada");
       setLoading(true);
       fetchCitas();
-    } catch {
-      toast.error("Error al cancelar la cita");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Error al cancelar la cita",
+      );
     }
-  }
-
-  function handleEdit(cita: Cita) {
-    const servicio = serviceMap.get(parseInt(cita.ea_service_id));
-    setWizard({
-      ...WIZARD_INITIAL,
-      categoriaId: servicio?.ea_category_id ?? null,
-      ubicacionNombre:
-        servicio?.ea_category_id === 1 ? "Managua" : "León",
-      eaServiceId: parseInt(cita.ea_service_id),
-      servicioNombre: servicio?.nombre ?? "",
-      servicioDuracion: servicio?.duracion ?? 0,
-      eaProviderId: parseInt(cita.ea_provider_id),
-      doctorNombre:
-        doctorMap.get(parseInt(cita.ea_provider_id)) ?? "",
-      citaIdToEdit: cita.$id,
-    });
-    setStep("fecha");
   }
 
   // ── Wizard steps render ──
@@ -207,7 +181,7 @@ export function MisCitas({ miembro }: MisCitasProps) {
             <IoArrowBackOutline size={18} />
           </button>
           <h2 className="text-xl font-bold tracking-tight text-[#333333]">
-            {wizard.citaIdToEdit ? "Reagendar cita" : "Agendar cita"}
+            Agendar cita
           </h2>
         </div>
 
@@ -251,14 +225,7 @@ export function MisCitas({ miembro }: MisCitasProps) {
                 patchWizard({ fecha });
                 setStep("horario");
               }}
-              onBack={() =>
-                wizard.citaIdToEdit
-                  ? (() => {
-                      setWizard(WIZARD_INITIAL);
-                      setStep("lista");
-                    })()
-                  : setStep("doctor")
-              }
+              onBack={() => setStep("doctor")}
             />
           )}
 
@@ -363,7 +330,6 @@ export function MisCitas({ miembro }: MisCitasProps) {
               }
               serviceMap={serviceMap}
               doctorMap={doctorMap}
-              onEdit={() => handleEdit(cita)}
               onCancel={() => handleCancel(cita.$id)}
             />
           ))}

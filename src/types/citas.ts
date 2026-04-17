@@ -68,7 +68,6 @@ export interface WizardState {
   pacienteTelefono: string;
   pacienteCorreo: string;
   pacienteCedula: string;
-  citaIdToEdit?: string;
 }
 
 export const WIZARD_INITIAL: WizardState = {
