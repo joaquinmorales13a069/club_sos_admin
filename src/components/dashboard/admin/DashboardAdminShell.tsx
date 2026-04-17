@@ -17,6 +17,7 @@ import { SectionPlaceholder } from "../shared/SectionPlaceholder";
 import { DashboardInicio } from "../inicio/DashboardInicio";
 import { MisBeneficios } from "../miembro/beneficios/MisBeneficios";
 import { AdminBeneficios } from "./beneficios/AdminBeneficios";
+import { AdminCitasRegistro } from "./citas/AdminCitasRegistro";
 import { AdminDocumentos } from "./documentos/AdminDocumentos";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
@@ -115,8 +116,8 @@ export function DashboardAdminShell({ miembro }: { miembro: Miembro }) {
                         {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}
 
                         {/* Administrar */}
-                        {section === "admin_citas"      && <SectionPlaceholder title="Gestionar Citas" description="Administra las citas médicas de todos los miembros del club." />}
-                        {section === "admin_beneficios" && <AdminBeneficios miembro={miembro} />}
+                        {section === "admin_citas"      && <AdminCitasRegistro />}
+                        {section === "admin_beneficios" && <AdminBeneficios />}
                         {section === "admin_documentos" && (
                             <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
                                 <AdminDocumentos />

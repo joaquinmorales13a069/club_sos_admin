@@ -13,6 +13,7 @@ import type { MiembroDashboardSection } from "../../../types/dashboard";
 import { SectionPlaceholder } from "../shared/SectionPlaceholder";
 import { DashboardInicio } from "../inicio/DashboardInicio";
 import { MisBeneficios } from "./beneficios/MisBeneficios";
+import { MisCitas } from "./citas/MisCitas";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ export function DashboardMiembroShell({ miembro }: { miembro: Miembro }) {
                 {loading ? <LoadingSkeleton /> : (
                     <>
                         {section === "inicio"     && <DashboardInicio miembro={miembro} onNavigate={handleNav} />}
-                        {section === "citas"      && <SectionPlaceholder title="Citas" description="Aquí podrás ver, agendar y gestionar tus citas médicas y de bienestar." />}
+                        {section === "citas"      && <MisCitas miembro={miembro} />}
                         {section === "beneficios" && <MisBeneficios miembro={miembro} />}
                         {section === "reportes"   && <SectionPlaceholder title="Mis reportes" description="Historial de solicitudes e informes enviados al equipo de ClubSOS." />}
                         {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}

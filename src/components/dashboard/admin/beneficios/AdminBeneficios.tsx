@@ -7,7 +7,7 @@ import {
     IoImageOutline,
     IoTrashOutline,
 } from "react-icons/io5";
-import type { Beneficio, Miembro } from "../../../../types/miembro";
+import type { Beneficio } from "../../../../types/miembro";
 import type { Empresa } from "../../../../types/signup";
 import { eliminarBeneficio, getBeneficiosAdmin, getTodasLasEmpresas } from "../../../../lib/appwrite";
 import { BeneficioFormModal } from "./BeneficioFormModal";
@@ -23,7 +23,7 @@ const ESTADO_STYLES: Record<string, string> = {
     expirada: "bg-[#F5F3EE] text-[#666666]",
 };
 
-export function AdminBeneficios({ miembro }: { miembro: Miembro }) {
+export function AdminBeneficios() {
     const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(true);
