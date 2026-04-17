@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePaginacion } from "../../../../hooks/usePaginacion";
+import { PaginacionControles } from "../../shared/PaginacionControles";
 import Skeleton from "react-loading-skeleton";
 import { toast } from "react-toastify";
 import {
@@ -93,6 +95,8 @@ export function AdminCitasRegistro() {
             );
         });
     }, [citas, filtro, empresaFiltro, query]);
+
+    const { paginaActual, pagina, totalPaginas, total, setPagina } = usePaginacion(filtradas, 20);
 
     const counts = useMemo(() => {
         const base: Record<EstadoFiltro, number> = {
@@ -289,7 +293,7 @@ export function AdminCitasRegistro() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E5E5]/80">
-                                {filtradas.map((c) => {
+                                {paginaActual.map((c) => {
                                     const estado = ESTADO_STYLES[c.estado_sync] ?? {
                                         label: c.estado_sync,
                                         className: "bg-[#F5F3EE] text-[#666666]",
@@ -397,6 +401,8 @@ export function AdminCitasRegistro() {
                     </div>
                 </div>
             )}
+
+            <PaginacionControles pagina={pagina} totalPaginas={totalPaginas} total={total} porPagina={20} onCambiar={setPagina} />
 
             {detalle && (
                 <DetalleModal

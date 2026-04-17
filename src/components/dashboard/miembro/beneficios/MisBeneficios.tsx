@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { usePaginacion } from "../../../../hooks/usePaginacion";
+import { PaginacionControles } from "../../shared/PaginacionControles";
 import Skeleton from "react-loading-skeleton";
 import { IoGiftOutline } from "react-icons/io5";
 import type { Beneficio, Miembro } from "../../../../types/miembro";
@@ -13,6 +15,8 @@ export function MisBeneficios({ miembro }: { miembro: Miembro }) {
             .then(setBeneficios)
             .finally(() => setLoading(false));
     }, [miembro.empresa_id]);
+
+    const { paginaActual, pagina, totalPaginas, total, setPagina } = usePaginacion(beneficios, 12);
 
     return (
         <div className="space-y-6">
@@ -39,7 +43,7 @@ export function MisBeneficios({ miembro }: { miembro: Miembro }) {
                 </div>
             ) : (
                 <ul className="grid gap-4 sm:grid-cols-2">
-                    {beneficios.map((b) => (
+                    {paginaActual.map((b) => (
                         <li
                             key={b.$id}
                             className="rounded-2xl border border-[#E5E5E5] bg-white p-5 shadow-sm"
@@ -77,6 +81,7 @@ export function MisBeneficios({ miembro }: { miembro: Miembro }) {
                     ))}
                 </ul>
             )}
+            <PaginacionControles pagina={pagina} totalPaginas={totalPaginas} total={total} porPagina={12} onCambiar={setPagina} />
         </div>
     );
 }

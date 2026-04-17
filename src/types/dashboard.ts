@@ -7,5 +7,8 @@ export type MiembroDashboardSection =
     | "admin_citas"
     | "admin_beneficios"
     | "admin_documentos"
+    | "admin_usuarios"
     | "empresa_citas"
-    | "empresa_ajustes";
+    | "empresa_ajustes"
+    | "empresa_usuarios"
+    | "mi_familia";

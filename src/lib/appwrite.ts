@@ -972,3 +972,81 @@ export async function rechazarCita(citaId: string): Promise<void> {
 export async function cancelarCita(citaId: string): Promise<void> {
   await ejecutarEmpresaAdminFn({ action: "cancelar_cita", cita_id: citaId });
 }
+
+// ---------------------------------------------------------------------------
+// ADMIN / EMPRESA_ADMIN — GESTIÓN DE USUARIOS
+// ---------------------------------------------------------------------------
+
+const FN_ADMIN_USUARIOS = import.meta.env.VITE_APPWRITE_ADMIN_USUARIOS_FN;
+
+/**
+ * Retorna todos los miembros del sistema ordenados por nombre (vista admin global).
+ */
+export async function getMiembrosAdmin(): Promise<Miembro[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, [
+    Query.orderAsc("nombre_completo"),
+    Query.limit(500),
+  ]);
+  return response.documents.map((doc) =>
+    documentoAMiembro(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Retorna los miembros de una empresa específica ordenados por nombre.
+ * Usado por empresa_admin para ver solo su empresa.
+ */
+export async function getMiembrosPorEmpresa(empresaId: string): Promise<Miembro[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, [
+    Query.equal("empresa_id", empresaId),
+    Query.orderAsc("nombre_completo"),
+    Query.limit(200),
+  ]);
+  return response.documents.map((doc) =>
+    documentoAMiembro(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Retorna los familiares vinculados a un titular (titular_miembro_id = titularId).
+ * Usado por miembros titulares para ver y gestionar su grupo familiar.
+ */
+export async function getFamiliaresPorTitular(titularId: string): Promise<Miembro[]> {
+  const response = await databases.listDocuments(DB_ID, TABLE_MIEMBROS, [
+    Query.equal("titular_miembro_id", titularId),
+    Query.orderAsc("nombre_completo"),
+    Query.limit(50),
+  ]);
+  return response.documents.map((doc) =>
+    documentoAMiembro(doc as unknown as Record<string, unknown>),
+  );
+}
+
+/**
+ * Llama a la función `admin_usuarios_crud` para mutaciones sobre un miembro.
+ * La función valida server-side el rol del caller y aplica las restricciones:
+ * - toggle_activo: admin y empresa_admin (solo su empresa)
+ * - editar_datos: admin y empresa_admin (solo su empresa)
+ * - cambiar_rol: exclusivo de admin
+ */
+export async function gestionarUsuarioAdmin(
+  action: "toggle_activo" | "cambiar_rol" | "editar_datos",
+  miembroId: string,
+  payload: {
+    rol?: MiembroRol;
+    activo?: boolean;
+    datos?: Partial<Pick<Miembro, "nombre_completo" | "telefono" | "correo" | "documento_identidad">>;
+  },
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_ADMIN_USUARIOS,
+    JSON.stringify({ action, miembro_id: miembroId, ...payload }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al gestionar el usuario.");
+  }
+}
