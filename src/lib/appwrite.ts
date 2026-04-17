@@ -2,6 +2,7 @@ import { Client, Account, Databases, Functions, Storage, ID, Query, ExecutionMet
 import type { Beneficio, BeneficioFormData, DocumentoMedico, Miembro, MiembroRol } from "../types/miembro";
 import type { Empresa, MiembroTitular, SignupFormData } from "../types/signup";
 import { getOtpSmsGateStatus, recordOtpSmsSent } from "./otpRateLimit";
+import { getOtpWaGateStatus, recordOtpWaSent } from "./otpWhatsappRateLimit";
 
 // Inicializa el cliente de Appwrite con el endpoint y el ID del proyecto
 // definidos en las variables de entorno (.env)
@@ -43,11 +44,39 @@ export async function sendPhoneOTP(phone: string): Promise<string> {
 }
 
 /**
+ * Envia un codigo OTP por WhatsApp al numero indicado usando una Appwrite Function.
+ * La funcion server-side crea el token con users.createPhoneToken (sin enviar SMS)
+ * y lo manda via WhatsApp Cloud API con el template codigo_otp.
+ *
+ * @param phone - Numero en formato E.164 (ej: +50588887777)
+ * @returns userId generado por Appwrite, necesario para verificar el OTP
+ */
+export async function sendWhatsappOTP(phone: string): Promise<string> {
+  const gate = getOtpWaGateStatus(phone);
+  if (gate.ok === false) {
+    throw new Error(gate.message);
+  }
+  const result = await functions.createExecution(
+    import.meta.env.VITE_APPWRITE_SEND_WHATSAPP_OTP_FN,
+    JSON.stringify({ phone }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  const body = JSON.parse(result.responseBody) as { userId?: string; error?: string };
+  if (!body.userId) {
+    throw new Error(body.error ?? "Error al enviar OTP por WhatsApp.");
+  }
+  recordOtpWaSent(phone);
+  return body.userId;
+}
+
+/**
  * Verifica el OTP ingresado por el usuario y crea una sesion activa.
  * Si el codigo es incorrecto o expirado, Appwrite lanza un error.
  *
- * @param userId - ID retornado por sendPhoneOTP
- * @param otp - Codigo de 6 digitos recibido por SMS
+ * @param userId - ID retornado por sendPhoneOTP o sendWhatsappOTP
+ * @param otp - Codigo de 6 digitos recibido por SMS o WhatsApp
  */
 export async function verifyPhoneOTP(userId: string, otp: string): Promise<void> {
   await account.createSession(userId, otp);
