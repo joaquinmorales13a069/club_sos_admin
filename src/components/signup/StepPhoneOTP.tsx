@@ -6,14 +6,14 @@ import {
   getCountryCallingCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
-import { sendPhoneOTP, verifyPhoneOTP, getCurrentUserId } from "../../lib/appwrite";
+import { sendPhoneOTP, sendWhatsappOTP, verifyPhoneOTP, getCurrentUserId } from "../../lib/appwrite";
 import { useOtpSmsGate } from "../../hooks/useOtpSmsGate";
+import { useOtpWhatsappGate } from "../../hooks/useOtpWhatsappGate";
 import type { StepProps } from "../../types/signup";
 
 const OTP_LENGTH = 6;
 const regionNames = new Intl.DisplayNames(["es"], { type: "region" });
 
-// Lista de paises ordenada alfabeticamente en espanol, generada una sola vez
 const COUNTRY_CODES: { iso: CountryCode; code: string; label: string }[] =
   getCountries()
     .map((iso) => ({
@@ -31,11 +31,12 @@ export default function StepPhoneOTP({ onNext }: Props) {
   const [otp, setOtp] = useState("");
   const [userId, setUserId] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otpChannel, setOtpChannel] = useState<"whatsapp" | "sms">("whatsapp");
   const [isVerified, setIsVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState(
-    "Ingresa tu numero para enviarte un codigo OTP.",
+    "Ingresa tu numero para enviarte un codigo OTP por WhatsApp.",
   );
 
   const selectedCountry = useMemo(
@@ -51,7 +52,11 @@ export default function StepPhoneOTP({ onNext }: Props) {
   const fullPhone = parsedPhone?.number ?? "";
   const canSendOtp = Boolean(parsedPhone?.isValid());
   const canVerifyOtp = otp.length === OTP_LENGTH;
+
+  const otpWaGate = useOtpWhatsappGate(fullPhone);
   const otpSmsGate = useOtpSmsGate(fullPhone);
+
+  const canRequestOtpWa = otpWaGate.ok;
   const canRequestOtpSms = otpSmsGate.ok;
 
   const handleOtpKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -67,15 +72,15 @@ export default function StepPhoneOTP({ onNext }: Props) {
     event.preventDefault();
   };
 
-  // Paso 1a: envia el OTP por SMS
+  // Paso 1a: envia el OTP por WhatsApp (canal primario)
   const handleSendOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSendOtp) {
       setStatusMessage("Ingresa un numero valido para continuar.");
       return;
     }
-    if (!canRequestOtpSms) {
-      setError(otpSmsGate.message);
+    if (!canRequestOtpWa) {
+      setError(otpWaGate.message);
       return;
     }
 
@@ -83,15 +88,41 @@ export default function StepPhoneOTP({ onNext }: Props) {
     setError("");
 
     try {
-      const newUserId = await sendPhoneOTP(fullPhone);
+      const newUserId = await sendWhatsappOTP(fullPhone);
       setUserId(newUserId);
       setOtpSent(true);
+      setOtpChannel("whatsapp");
       setIsVerified(false);
       setStatusMessage(
-        `Codigo enviado a ${parsedPhone?.number ?? `${selectedCountry.code} ${phoneDigits}`}. Ingresa los 6 digitos.`,
+        `Codigo enviado por WhatsApp a ${parsedPhone?.number ?? `${selectedCountry?.code ?? ""} ${phoneDigits}`}. Ingresa los 6 digitos.`,
       );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al enviar el OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fallback: reenviar por SMS cuando el usuario no recibio el WhatsApp
+  const handleFallbackToSms = async () => {
+    if (!canSendOtp) return;
+    if (!canRequestOtpSms) {
+      setError(otpSmsGate.message);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setOtp("");
+    setIsVerified(false);
+
+    try {
+      const newUserId = await sendPhoneOTP(fullPhone);
+      setUserId(newUserId);
+      setOtpChannel("sms");
+      setStatusMessage("Codigo enviado por SMS. Ingresa los 6 digitos.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al enviar el codigo por SMS.");
     } finally {
       setLoading(false);
     }
@@ -110,8 +141,6 @@ export default function StepPhoneOTP({ onNext }: Props) {
       const authUserId = await getCurrentUserId();
       setIsVerified(true);
       setStatusMessage("Telefono verificado. Continua con el siguiente paso.");
-
-      // Pasa telefono y authUserId al orquestador para uso en pasos posteriores
       onNext({ telefono: fullPhone, authUserId });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Codigo OTP incorrecto.");
@@ -120,11 +149,20 @@ export default function StepPhoneOTP({ onNext }: Props) {
     }
   };
 
-  // Reenvio del OTP generando un nuevo token
+  // Reenvio del OTP por el mismo canal activo
   const handleResendOtp = async () => {
-    if (!canSendOtp || !canRequestOtpSms) {
-      if (!canRequestOtpSms) setError(otpSmsGate.message);
-      return;
+    if (!canSendOtp) return;
+
+    if (otpChannel === "sms") {
+      if (!canRequestOtpSms) {
+        setError(otpSmsGate.message);
+        return;
+      }
+    } else {
+      if (!canRequestOtpWa) {
+        setError(otpWaGate.message);
+        return;
+      }
     }
 
     setLoading(true);
@@ -133,10 +171,17 @@ export default function StepPhoneOTP({ onNext }: Props) {
     setIsVerified(false);
 
     try {
-      const newUserId = await sendPhoneOTP(fullPhone);
+      const newUserId =
+        otpChannel === "sms"
+          ? await sendPhoneOTP(fullPhone)
+          : await sendWhatsappOTP(fullPhone);
       setUserId(newUserId);
       setOtpSent(true);
-      setStatusMessage("Se envio un nuevo codigo OTP.");
+      setStatusMessage(
+        otpChannel === "sms"
+          ? "Se envio un nuevo codigo OTP por SMS."
+          : "Se envio un nuevo codigo OTP por WhatsApp.",
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al reenviar el codigo.");
     } finally {
@@ -153,7 +198,7 @@ export default function StepPhoneOTP({ onNext }: Props) {
           </span>
         </div>
         <h2 className="text-3xl font-bold text-[#0066CC]">
-          Registro por SMS
+          {otpChannel === "sms" ? "Registro por SMS" : "Registro por WhatsApp"}
         </h2>
       </div>
 
@@ -164,7 +209,7 @@ export default function StepPhoneOTP({ onNext }: Props) {
       <label className="mt-1 text-sm font-medium text-[#666666]">
         Numero de telefono
       </label>
-      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[170px_minmax(0,1fr)]">
+      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[220px_minmax(0,1fr)]">
         <select
           value={countryIso}
           onChange={(e) => setCountryIso(e.target.value as CountryCode)}
@@ -189,24 +234,24 @@ export default function StepPhoneOTP({ onNext }: Props) {
         />
       </div>
 
-      {canSendOtp && !canRequestOtpSms && (
+      {canSendOtp && !otpSent && !canRequestOtpWa && (
         <p className="rounded-xl border border-[#CC3333]/40 bg-[#FFF5F5] px-3 py-2 text-xs text-[#666666]">
-          {otpSmsGate.message}
+          {otpWaGate.message}
         </p>
       )}
 
-      {/* Boton enviar OTP */}
+      {/* Boton enviar OTP por WhatsApp */}
       <button
         type="submit"
-        disabled={!canSendOtp || !canRequestOtpSms || loading}
+        disabled={!canSendOtp || !canRequestOtpWa || loading || otpSent}
         className="mt-1 flex w-full items-center justify-center rounded-xl bg-[#CC3333] px-[18px] py-[14px] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="text-base font-semibold text-white">
-          {loading && !otpSent ? "Enviando..." : otpSent ? "Reenviar OTP" : "Enviar OTP"}
+          {loading && !otpSent ? "Enviando..." : otpSent ? "OTP enviado" : "Enviar OTP por WhatsApp"}
         </span>
       </button>
 
-      {/* Campo OTP — solo visible tras enviar */}
+      {/* Campo OTP y opciones — solo visibles tras enviar */}
       {otpSent && (
         <>
           <label className="mt-1 text-sm font-medium text-[#666666]">
@@ -216,34 +261,54 @@ export default function StepPhoneOTP({ onNext }: Props) {
             type="text"
             value={otp}
             disabled={isVerified}
-            inputMode="numeric"
-            pattern="[0-9]*"
+            inputMode={otpChannel === "sms" ? "numeric" : "text"}
+            pattern={otpChannel === "sms" ? "[0-9]*" : undefined}
             autoComplete="one-time-code"
-            onKeyDown={handleOtpKeyDown}
+            onKeyDown={otpChannel === "sms" ? handleOtpKeyDown : undefined}
             onPaste={(event) => {
-              const digits = event.clipboardData
-                .getData("text")
-                .replace(/\D/g, "")
-                .slice(0, OTP_LENGTH);
+              const raw = event.clipboardData.getData("text");
+              const cleaned =
+                otpChannel === "sms"
+                  ? raw.replace(/\D/g, "").slice(0, OTP_LENGTH)
+                  : raw.replace(/\s/g, "").slice(0, OTP_LENGTH);
               event.preventDefault();
-              setOtp(digits);
+              setOtp(cleaned);
             }}
-            onChange={(e) =>
-              setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
-            }
-            placeholder="123456"
+            onChange={(e) => {
+              const val = e.target.value;
+              setOtp(
+                otpChannel === "sms"
+                  ? val.replace(/\D/g, "").slice(0, OTP_LENGTH)
+                  : val.replace(/\s/g, "").slice(0, OTP_LENGTH),
+              );
+            }}
+            placeholder={otpChannel === "sms" ? "123456" : "Ab1C2d"}
             className="w-full rounded-xl border border-[#666666] bg-white px-4 py-[14px] text-base text-[#666666] outline-none placeholder:text-[#666666] focus:border-[#0066CC] disabled:bg-[#EFEDE8]"
           />
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={handleResendOtp}
-              disabled={loading || !canRequestOtpSms}
-              className="text-sm font-semibold text-[#CC3333] disabled:opacity-50"
+              disabled={
+                loading ||
+                (otpChannel === "sms" ? !canRequestOtpSms : !canRequestOtpWa)
+              }
+              className="text-sm font-semibold text-[#CC3333] transition-opacity hover:opacity-70 disabled:opacity-50"
             >
               Reenviar codigo
             </button>
+
+            {otpChannel === "whatsapp" && (
+              <button
+                type="button"
+                onClick={handleFallbackToSms}
+                disabled={loading || !canRequestOtpSms}
+                className="text-sm text-[#666666] underline transition-opacity hover:opacity-70 disabled:opacity-50"
+              >
+                Recibir por SMS
+              </button>
+            )}
           </div>
         </>
       )}

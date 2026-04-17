@@ -12,8 +12,9 @@ import {
   getCountryCallingCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
-import { account, sendPhoneOTP, verifyPhoneOTP } from "../lib/appwrite";
+import { account, sendPhoneOTP, sendWhatsappOTP, verifyPhoneOTP } from "../lib/appwrite";
 import { useOtpSmsGate } from "../hooks/useOtpSmsGate";
+import { useOtpWhatsappGate } from "../hooks/useOtpWhatsappGate";
 import logoSosMedical from "../assets/logo-sosmedical.webp";
 import logoClubSos from "../assets/logo-clubSOS.webp";
 import loginImagen from "../assets/login-image.webp";
@@ -39,17 +40,23 @@ export default function LoginPage(): ReactElement {
       () => { setCheckingSession(false); },
     );
   }, [navigate]);
+
   const [phoneDigits, setPhoneDigits] = useState("");
   const [otp, setOtp] = useState("");
   const [userId, setUserId] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otpChannel, setOtpChannel] = useState<"whatsapp" | "sms">("whatsapp");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const parsedPhone = parsePhoneNumberFromString(phoneDigits, countryIso);
   const isPhoneValid = Boolean(parsedPhone?.isValid());
   const fullPhone = parsedPhone?.number ?? "";
+
+  const otpWaGate = useOtpWhatsappGate(fullPhone);
   const otpSmsGate = useOtpSmsGate(fullPhone);
+
+  const canRequestOtpWa = otpWaGate.ok === true;
   const canRequestOtpSms = otpSmsGate.ok === true;
 
   const handleOtpKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -68,8 +75,9 @@ export default function LoginPage(): ReactElement {
   const handleSendOtp = async (event: FormEvent) => {
     event.preventDefault();
     if (!isPhoneValid) return;
-    if (otpSmsGate.ok === false) {
-      setError(otpSmsGate.message);
+
+    if (otpWaGate.ok === false) {
+      setError(otpWaGate.message);
       return;
     }
 
@@ -77,12 +85,37 @@ export default function LoginPage(): ReactElement {
     setError("");
 
     try {
-      const newUserId = await sendPhoneOTP(fullPhone);
+      const newUserId = await sendWhatsappOTP(fullPhone);
       setUserId(newUserId);
       setOtpSent(true);
+      setOtpChannel("whatsapp");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Error al enviar el codigo OTP.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFallbackToSms = async () => {
+    if (!isPhoneValid) return;
+    if (otpSmsGate.ok === false) {
+      setError(otpSmsGate.message);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setOtp("");
+
+    try {
+      const newUserId = await sendPhoneOTP(fullPhone);
+      setUserId(newUserId);
+      setOtpChannel("sms");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Error al enviar el codigo por SMS.";
       setError(message);
     } finally {
       setLoading(false);
@@ -110,9 +143,17 @@ export default function LoginPage(): ReactElement {
 
   const handleResendOtp = async () => {
     if (!isPhoneValid) return;
-    if (otpSmsGate.ok === false) {
-      setError(otpSmsGate.message);
-      return;
+
+    if (otpChannel === "sms") {
+      if (otpSmsGate.ok === false) {
+        setError(otpSmsGate.message);
+        return;
+      }
+    } else {
+      if (otpWaGate.ok === false) {
+        setError(otpWaGate.message);
+        return;
+      }
     }
 
     setLoading(true);
@@ -120,7 +161,10 @@ export default function LoginPage(): ReactElement {
     setOtp("");
 
     try {
-      const newUserId = await sendPhoneOTP(fullPhone);
+      const newUserId =
+        otpChannel === "sms"
+          ? await sendPhoneOTP(fullPhone)
+          : await sendWhatsappOTP(fullPhone);
       setUserId(newUserId);
     } catch (err: unknown) {
       const message =
@@ -180,22 +224,23 @@ export default function LoginPage(): ReactElement {
 
             <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
               <h2 className="text-3xl font-bold text-[#0066CC] md:text-4xl">
-                Inicia sesion por SMS
+                {otpChannel === "sms" ? "Inicia sesion por SMS" : "Inicia sesion por WhatsApp"}
               </h2>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0066CC]">
-                Acceso seguro
-              </span>
+            
             </div>
 
             <p className="text-base leading-[1.35] text-[#666666]">
-              Ingresa tu telefono y valida el codigo OTP para acceder a tu
-              panel.
+              {otpSent
+                ? otpChannel === "sms"
+                  ? "Ingresa el codigo de 6 digitos que recibiste por SMS."
+                  : "Ingresa el codigo de 6 caracteres que recibiste por WhatsApp."
+                : "Ingresa tu telefono y valida el codigo OTP para acceder a tu panel."}
             </p>
 
             <label className="mt-1 text-sm font-medium text-[#666666]">
               Numero de telefono
             </label>
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[170px_minmax(0,1fr)]">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[220px_minmax(0,1fr)]">
               <select
                 value={countryIso}
                 onChange={(event) =>
@@ -232,9 +277,9 @@ export default function LoginPage(): ReactElement {
               </p>
             )}
 
-            {isPhoneValid && otpSmsGate.ok === false && (
+            {isPhoneValid && !otpSent && otpWaGate.ok === false && (
               <p className="rounded-xl border border-[#CC3333]/40 bg-[#FFF5F5] px-3 py-2 text-xs text-[#666666]">
-                {otpSmsGate.message}
+                {otpWaGate.message}
               </p>
             )}
 
@@ -246,34 +291,54 @@ export default function LoginPage(): ReactElement {
                 <input
                   type="text"
                   value={otp}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  inputMode={otpChannel === "sms" ? "numeric" : "text"}
+                  pattern={otpChannel === "sms" ? "[0-9]*" : undefined}
                   autoComplete="one-time-code"
-                  onKeyDown={handleOtpKeyDown}
+                  onKeyDown={otpChannel === "sms" ? handleOtpKeyDown : undefined}
                   onPaste={(event) => {
-                    const digits = event.clipboardData
-                      .getData("text")
-                      .replace(/\D/g, "")
-                      .slice(0, 6);
+                    const raw = event.clipboardData.getData("text");
+                    const cleaned =
+                      otpChannel === "sms"
+                        ? raw.replace(/\D/g, "").slice(0, 6)
+                        : raw.replace(/\s/g, "").slice(0, 6);
                     event.preventDefault();
-                    setOtp(digits);
+                    setOtp(cleaned);
                   }}
-                  onChange={(event) =>
-                    setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="123456"
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setOtp(
+                      otpChannel === "sms"
+                        ? val.replace(/\D/g, "").slice(0, 6)
+                        : val.replace(/\s/g, "").slice(0, 6),
+                    );
+                  }}
+                  placeholder={otpChannel === "sms" ? "123456" : "Ab1C2d"}
                   className="w-full rounded-xl border border-[#666666] bg-white px-4 py-[14px] text-base text-[#666666] outline-none placeholder:text-[#666666] focus:border-[#0066CC]"
                 />
 
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-between pt-1">
                   <button
                     type="button"
                     onClick={handleResendOtp}
-                    disabled={loading || !canRequestOtpSms}
-                    className="text-sm font-semibold text-[#CC3333] disabled:opacity-50"
+                    disabled={
+                      loading ||
+                      (otpChannel === "sms" ? !canRequestOtpSms : !canRequestOtpWa)
+                    }
+                    className="text-sm font-semibold text-[#CC3333] transition-opacity hover:opacity-70 disabled:opacity-50"
                   >
                     Reenviar codigo
                   </button>
+
+                  {otpChannel === "whatsapp" && (
+                    <button
+                      type="button"
+                      onClick={handleFallbackToSms}
+                      disabled={loading || !canRequestOtpSms}
+                      className="text-sm text-[#666666] underline transition-opacity hover:opacity-70 disabled:opacity-50"
+                    >
+                      Recibir por SMS
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -286,19 +351,23 @@ export default function LoginPage(): ReactElement {
               type="submit"
               disabled={
                 loading ||
-                (!otpSent && (!isPhoneValid || !canRequestOtpSms)) ||
+                (!otpSent && (!isPhoneValid || !canRequestOtpWa)) ||
                 (otpSent && otp.length !== 6)
               }
               className="flex w-full items-center justify-center rounded-xl bg-[#CC3333] px-[18px] py-[14px] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="text-base font-semibold text-white">
-                {loading ? "Cargando..." : otpSent ? "Verificar OTP" : "Enviar OTP"}
+                {loading
+                  ? "Cargando..."
+                  : otpSent
+                    ? "Verificar OTP"
+                    : "Enviar OTP por WhatsApp"}
               </span>
             </button>
 
             {!otpSent && (
               <p className="pt-0.5 text-center text-sm text-[#666666]">
-                Te enviaremos un SMS con un codigo de 6 digitos.
+                Te enviaremos un mensaje de WhatsApp con un codigo de 6 digitos.
               </p>
             )}
 
