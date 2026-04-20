@@ -19,6 +19,7 @@ import { MisCitas } from "../miembro/citas/MisCitas";
 import { EmpresaCitasRegistro } from "./EmpresaCitasRegistro";
 import { EmpresaAjustes } from "./EmpresaAjustes";
 import { EmpresaUsuarios } from "./EmpresaUsuarios";
+import { MisReportes } from "../miembro/reportes/MisReportes";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ export function DashboardEmpresaAdminShell({ miembro }: { miembro: Miembro }) {
                         {/* Mi Perfil */}
                         {section === "citas"      && <MisCitas miembro={miembro} />}
                         {section === "beneficios" && <MisBeneficios miembro={miembro} />}
-                        {section === "reportes"   && <SectionPlaceholder title="Mis reportes" description="Historial de solicitudes e informes enviados al equipo de ClubSOS." />}
+                        {section === "reportes"   && <MisReportes miembro={miembro} />}
                         {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}
 
                         {/* Administrar Empresa */}

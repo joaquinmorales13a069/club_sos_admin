@@ -570,6 +570,84 @@ export async function getDocumentosRecientes(
 }
 
 /**
+ * Retorna todos los documentos activos del miembro con paginación server-side.
+ *
+ * @param miembroId    - $id del miembro
+ * @param page         - Página (1-based)
+ * @param pageSize     - Documentos por página
+ * @param tipoDocumento - Filtro opcional por tipo
+ */
+export async function getDocumentosMiembro(
+  miembroId: string,
+  page = 1,
+  pageSize = 12,
+  tipoDocumento?: string,
+): Promise<{ documentos: DocumentoMedico[]; total: number }> {
+  const queries = [
+    Query.equal("miembro_id", miembroId),
+    Query.equal("estado_archivo", "activo"),
+    Query.orderDesc("$createdAt"),
+    Query.limit(pageSize),
+    Query.offset((page - 1) * pageSize),
+  ];
+  if (tipoDocumento) {
+    queries.push(Query.equal("tipo_documento", tipoDocumento));
+  }
+  const response = await databases.listDocuments(DB_ID, TABLE_DOCUMENTOS, queries);
+  return {
+    documentos: response.documents.map((doc) =>
+      documentoADocumentoMedico(doc as unknown as Record<string, unknown>),
+    ),
+    total: response.total,
+  };
+}
+
+/**
+ * Abre un documento en una nueva pestaña del browser.
+ * Detecta el MIME type desde `tipoArchivo` y las magic bytes del base64.
+ *
+ * @param fileId      - storage_archivo_id del documento
+ * @param tipoArchivo - "pdf" | "imagen"
+ */
+export async function verDocumento(fileId: string, tipoArchivo: string): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_HANDLER_DOCUMENTOS,
+    JSON.stringify({ fileId }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al obtener el documento.");
+  }
+  const { base64 } = JSON.parse(execution.responseBody) as { base64: string };
+
+  let mimeType: string;
+  if (tipoArchivo === "pdf") {
+    mimeType = "application/pdf";
+  } else if (base64.startsWith("/9j/")) {
+    mimeType = "image/jpeg";
+  } else if (base64.startsWith("iVBOR")) {
+    mimeType = "image/png";
+  } else if (base64.startsWith("UklGR")) {
+    mimeType = "image/webp";
+  } else {
+    mimeType = "image/jpeg";
+  }
+
+  const bytes = atob(base64);
+  const array = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    array[i] = bytes.charCodeAt(i);
+  }
+  const blob = new Blob([array], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+/**
  * Descarga un documento via la función `handler_documentos`.
  * La función verifica server-side que el archivo pertenece al usuario autenticado,
  * luego retorna el contenido como base64.
