@@ -17,6 +17,7 @@ import { MisBeneficios } from "./beneficios/MisBeneficios";
 import { MisCitas } from "./citas/MisCitas";
 import { MiFamilia } from "./familia/MiFamilia";
 import { MisReportes } from "./reportes/MisReportes";
+import { MisAjustes } from "../shared/MisAjustes";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ export function DashboardMiembroShell({ miembro }: { miembro: Miembro }) {
                         {section === "citas"      && <MisCitas miembro={miembro} />}
                         {section === "beneficios" && <MisBeneficios miembro={miembro} />}
                         {section === "reportes"   && <MisReportes miembro={miembro} />}
-                        {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}
+                        {section === "ajustes"    && <MisAjustes miembro={miembro} />}
                         {section === "mi_familia" && esTitular && (
                             <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
                                 <MiFamilia miembro={miembro} />

@@ -422,7 +422,7 @@ export async function subirImagenBeneficio(file: File): Promise<string> {
 
 const FN_BENEFICIOS_CRUD = import.meta.env.VITE_APPWRITE_BENEFICIOS_CRUD_FN;
 const TABLE_DOCUMENTOS = "documentos_medicos";
-const FN_HANDLER_DOCUMENTOS = "69ac29ed001582625f9e";
+const FN_HANDLER_DOCUMENTOS = import.meta.env.VITE_APPWRITE_GET_DOCUMENTOS_TOKEN_FN;
 const FN_SUBIR_DOCUMENTO = import.meta.env.VITE_APPWRITE_SUBIR_DOCUMENTO_FN;
 
 /**
@@ -1126,5 +1126,62 @@ export async function gestionarUsuarioAdmin(
   if (execution.responseStatusCode >= 400) {
     const body = JSON.parse(execution.responseBody || "{}");
     throw new Error(body.error ?? "Error al gestionar el usuario.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SELF-SERVICE — ACTUALIZAR PERFIL PROPIO
+// ---------------------------------------------------------------------------
+
+const FN_ACTUALIZAR_PERFIL = import.meta.env.VITE_APPWRITE_ACTUALIZAR_PERFIL_FN;
+
+/**
+ * Actualiza los datos personales del miembro autenticado (sin teléfono).
+ * La función server-side valida que el miembro pertenece al usuario en sesión.
+ */
+export async function actualizarPerfilMiembro(
+  miembroId: string,
+  datos: Partial<Pick<Miembro, "nombre_completo" | "correo" | "documento_identidad">>,
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_ACTUALIZAR_PERFIL,
+    JSON.stringify({ action: "actualizar_datos", miembro_id: miembroId, datos }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al actualizar el perfil.");
+  }
+}
+
+/**
+ * Verifica el OTP de un nuevo teléfono y actualiza el campo en el perfil.
+ * El OTP fue enviado previamente via sendWhatsappOTP(nuevoTelefono).
+ * La función server-side verifica el código y luego limpia la sesión temporal.
+ */
+export async function actualizarTelefonoMiembro(
+  miembroId: string,
+  nuevoTelefono: string,
+  otpUserId: string,
+  otpCode: string,
+): Promise<void> {
+  const execution = await functions.createExecution(
+    FN_ACTUALIZAR_PERFIL,
+    JSON.stringify({
+      action: "actualizar_telefono",
+      miembro_id: miembroId,
+      nuevo_telefono: nuevoTelefono,
+      otp_user_id: otpUserId,
+      otp_code: otpCode,
+    }),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  if (execution.responseStatusCode >= 400) {
+    const body = JSON.parse(execution.responseBody || "{}");
+    throw new Error(body.error ?? "Error al actualizar el teléfono.");
   }
 }

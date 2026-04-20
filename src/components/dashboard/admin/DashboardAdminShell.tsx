@@ -20,6 +20,7 @@ import { AdminBeneficios } from "./beneficios/AdminBeneficios";
 import { AdminCitasRegistro } from "./citas/AdminCitasRegistro";
 import { AdminDocumentos } from "./documentos/AdminDocumentos";
 import { AdminUsuarios } from "./usuarios/AdminUsuarios";
+import { MisAjustes } from "../shared/MisAjustes";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -115,7 +116,7 @@ export function DashboardAdminShell({ miembro }: { miembro: Miembro }) {
                         {section === "citas"      && <SectionPlaceholder title="Citas" description="Aquí podrás ver, agendar y gestionar tus citas médicas y de bienestar." />}
                         {section === "beneficios" && <MisBeneficios miembro={miembro} />}
                         {section === "reportes"   && <SectionPlaceholder title="Mis reportes" description="Historial de solicitudes e informes enviados al equipo de ClubSOS." />}
-                        {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}
+                        {section === "ajustes"    && <MisAjustes miembro={miembro} />}
 
                         {/* Administrar */}
                         {section === "admin_citas"      && <AdminCitasRegistro />}
