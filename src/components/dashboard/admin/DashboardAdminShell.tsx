@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Skeleton from "react-loading-skeleton";
 import {
+  IoBusinessOutline,
   IoCalendarOutline,
   IoDocumentTextOutline,
   IoGiftOutline,
@@ -20,6 +21,7 @@ import { AdminBeneficios } from "./beneficios/AdminBeneficios";
 import { AdminCitasRegistro } from "./citas/AdminCitasRegistro";
 import { AdminDocumentos } from "./documentos/AdminDocumentos";
 import { AdminUsuarios } from "./usuarios/AdminUsuarios";
+import { AdminEmpresas } from "./empresas/AdminEmpresas";
 import { MisAjustes } from "../shared/MisAjustes";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
@@ -82,6 +84,11 @@ const NAV_GROUPS: NavGroup[] = [
         id: "admin_usuarios",
         label: "Gestionar Usuarios",
         icon: <IoPersonOutline size={18} />,
+      },
+      {
+        id: "admin_empresas",
+        label: "Gestionar Empresas",
+        icon: <IoBusinessOutline size={18} />,
       },
     ],
   },
@@ -195,6 +202,11 @@ export function DashboardAdminShell({ miembro }: { miembro: Miembro }) {
             {section === "admin_usuarios" && (
               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
                 <AdminUsuarios />
+              </div>
+            )}
+            {section === "admin_empresas" && (
+              <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
+                <AdminEmpresas />
               </div>
             )}
           </>

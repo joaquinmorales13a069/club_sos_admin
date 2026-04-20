@@ -1130,6 +1130,74 @@ export async function gestionarUsuarioAdmin(
 }
 
 // ---------------------------------------------------------------------------
+// ADMIN — EMPRESAS CRUD
+// ---------------------------------------------------------------------------
+
+const FN_ADMIN_EMPRESAS = import.meta.env.VITE_APPWRITE_ADMIN_EMPRESAS_FN;
+
+async function ejecutarAdminEmpresasFn<T = unknown>(
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const execution = await functions.createExecution(
+    FN_ADMIN_EMPRESAS,
+    JSON.stringify(payload),
+    false,
+    "/",
+    ExecutionMethod.POST,
+  );
+  const body = execution.responseBody ? JSON.parse(execution.responseBody) : {};
+  if (execution.responseStatusCode >= 400) {
+    throw new Error(body.error ?? "Error en la función admin_empresas.");
+  }
+  return body as T;
+}
+
+function docToEmpresa(doc: Record<string, unknown>): Empresa {
+  return {
+    $id: String(doc.$id),
+    nombre_empresa: String(doc.nombre_empresa),
+    codigo_empresa: String(doc.codigo_empresa),
+    estado: doc.estado === "inactivo" ? "inactivo" : "activo",
+    notas: doc.notas != null ? String(doc.notas) : undefined,
+  };
+}
+
+/** Crea una empresa nueva. Solo admin. */
+export async function crearEmpresaAdmin(data: {
+  nombre_empresa: string;
+  codigo_empresa: string;
+  notas?: string;
+}): Promise<Empresa> {
+  const body = await ejecutarAdminEmpresasFn<{ empresa: Record<string, unknown> }>({
+    action: "crear_empresa",
+    ...data,
+  });
+  return docToEmpresa(body.empresa);
+}
+
+/** Actualiza campos de una empresa. Solo admin. */
+export async function actualizarEmpresaAdmin(
+  empresaId: string,
+  data: Partial<Pick<Empresa, "nombre_empresa" | "codigo_empresa" | "notas" | "estado">>,
+): Promise<Empresa> {
+  const body = await ejecutarAdminEmpresasFn<{ empresa: Record<string, unknown> }>({
+    action: "actualizar_empresa",
+    empresa_id: empresaId,
+    data,
+  });
+  return docToEmpresa(body.empresa);
+}
+
+/** Alterna el estado activo/inactivo de una empresa. Solo admin. */
+export async function toggleEstadoEmpresa(empresaId: string): Promise<Empresa> {
+  const body = await ejecutarAdminEmpresasFn<{ empresa: Record<string, unknown> }>({
+    action: "toggle_estado",
+    empresa_id: empresaId,
+  });
+  return docToEmpresa(body.empresa);
+}
+
+// ---------------------------------------------------------------------------
 // SELF-SERVICE — ACTUALIZAR PERFIL PROPIO
 // ---------------------------------------------------------------------------
 
