@@ -6,6 +6,7 @@ import {
     IoCalendarOutline,
     IoGiftOutline,
     IoHomeOutline,
+    IoPeopleOutline,
     IoPersonOutline,
     IoSettingsOutline,
     IoStatsChartOutline,
@@ -20,44 +21,53 @@ import { EmpresaCitasRegistro } from "./EmpresaCitasRegistro";
 import { EmpresaAjustes } from "./EmpresaAjustes";
 import { EmpresaUsuarios } from "./EmpresaUsuarios";
 import { MisReportes } from "../miembro/reportes/MisReportes";
+import { MiFamilia } from "../miembro/familia/MiFamilia";
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
 type NavItem  = { id: MiembroDashboardSection; label: string; icon: ReactNode };
 type NavGroup = { groupLabel?: string; groupIcon?: ReactNode; items: NavItem[] };
 
-const NAV_GROUPS: NavGroup[] = [
-    {
-        items: [
-            { id: "inicio", label: "Inicio", icon: <IoHomeOutline size={18} /> },
-        ],
-    },
-    {
-        groupLabel: "Mi Perfil",
-        groupIcon: <IoPersonOutline size={13} />,
-        items: [
-            { id: "citas",      label: "Citas",        icon: <IoCalendarOutline size={18} /> },
-            { id: "beneficios", label: "Beneficios",   icon: <IoGiftOutline size={18} /> },
-            { id: "reportes",   label: "Mis Reportes", icon: <IoStatsChartOutline size={18} /> },
-            { id: "ajustes",    label: "Ajustes",      icon: <IoSettingsOutline size={18} /> },
-        ],
-    },
-    {
-        groupLabel: "Administrar Empresa",
-        groupIcon: <IoBusinessOutline size={13} />,
-        items: [
-            { id: "empresa_citas",   label: "Registro de Citas", icon: <IoCalendarOutline size={18} /> },
-            { id: "empresa_ajustes",  label: "Ajustes empresa",    icon: <IoSettingsOutline size={18} /> },
-            { id: "empresa_usuarios", label: "Gestionar Usuarios", icon: <IoPersonOutline size={18} /> },
-        ],
-    },
+const NAV_PERFIL_BASE: NavItem[] = [
+    { id: "citas",      label: "Citas",        icon: <IoCalendarOutline size={18} /> },
+    { id: "beneficios", label: "Beneficios",   icon: <IoGiftOutline size={18} /> },
+    { id: "reportes",   label: "Mis Reportes", icon: <IoStatsChartOutline size={18} /> },
+    { id: "ajustes",    label: "Ajustes",      icon: <IoSettingsOutline size={18} /> },
 ];
 
-const ALL_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+const NAV_FAMILIA_ITEM: NavItem = { id: "mi_familia", label: "Mi Familia", icon: <IoPeopleOutline size={18} /> };
+
+const NAV_EMPRESA: NavItem[] = [
+    { id: "empresa_citas",    label: "Registro de Citas", icon: <IoCalendarOutline size={18} /> },
+    { id: "empresa_ajustes",  label: "Ajustes empresa",   icon: <IoSettingsOutline size={18} /> },
+    { id: "empresa_usuarios", label: "Gestionar Usuarios", icon: <IoPersonOutline size={18} /> },
+];
 
 // ── Shell ────────────────────────────────────────────────────────────────────
 
 export function DashboardEmpresaAdminShell({ miembro }: { miembro: Miembro }) {
+    const esTitular = miembro.parentesco === "titular";
+
+    const navPerfil = esTitular ? [...NAV_PERFIL_BASE, NAV_FAMILIA_ITEM] : NAV_PERFIL_BASE;
+
+    const navGroups: NavGroup[] = [
+        {
+            items: [{ id: "inicio", label: "Inicio", icon: <IoHomeOutline size={18} /> }],
+        },
+        {
+            groupLabel: "Mi Perfil",
+            groupIcon: <IoPersonOutline size={13} />,
+            items: navPerfil,
+        },
+        {
+            groupLabel: "Administrar Empresa",
+            groupIcon: <IoBusinessOutline size={13} />,
+            items: NAV_EMPRESA,
+        },
+    ];
+
+    const allItems = navGroups.flatMap((g) => g.items);
+
     const [section, setSection] = useState<MiembroDashboardSection>("inicio");
     const [loading, setLoading] = useState(false);
     const timerRef = useRef<number | null>(null);
@@ -77,14 +87,14 @@ export function DashboardEmpresaAdminShell({ miembro }: { miembro: Miembro }) {
             <nav className="shrink-0 lg:w-[240px] xl:w-[260px]" aria-label="Navegación empresa admin">
                 {/* Mobile: scroll horizontal plano */}
                 <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                    {ALL_ITEMS.map((item) => (
+                    {allItems.map((item) => (
                         <MobileNavBtn key={item.id} item={item} active={section === item.id} onClick={() => handleNav(item.id)} />
                     ))}
                 </div>
 
                 {/* Desktop: grupos con etiquetas */}
                 <div className="hidden lg:flex lg:flex-col lg:gap-5">
-                    {NAV_GROUPS.map((group, gi) => (
+                    {navGroups.map((group, gi) => (
                         <div key={gi}>
                             {group.groupLabel && (
                                 <div className="mb-1.5 flex items-center gap-1.5 px-1">
@@ -117,6 +127,11 @@ export function DashboardEmpresaAdminShell({ miembro }: { miembro: Miembro }) {
                         {section === "beneficios" && <MisBeneficios miembro={miembro} />}
                         {section === "reportes"   && <MisReportes miembro={miembro} />}
                         {section === "ajustes"    && <SectionPlaceholder title="Ajustes" description="Preferencias de cuenta, notificaciones y datos de contacto." />}
+                        {section === "mi_familia" && esTitular && (
+                            <div className="rounded-2xl border border-[#E5E5E5] bg-white p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)]">
+                                <MiFamilia miembro={miembro} />
+                            </div>
+                        )}
 
                         {/* Administrar Empresa */}
                         {section === "empresa_citas"   && <EmpresaCitasRegistro miembro={miembro} />}
